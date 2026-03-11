@@ -239,7 +239,7 @@ export default function UploadTab({ onDataChange }) {
                 className="w-full py-4 rounded-2xl font-bold text-sm transition-all duration-200 relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                     background: !file ? 'hsl(var(--secondary))' : 'var(--grad-primary)',
-                    boxShadow: file ? '0 0 30px rgba(124,58,237,0.4)' : 'none',
+                    boxShadow: file ? '0 0 30px hsl(var(--primary) / 0.4)' : 'none',
                 }}
             >
                 {status === 'parsing' ? (

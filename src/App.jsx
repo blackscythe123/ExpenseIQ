@@ -31,6 +31,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    const isCustom = colorTheme.startsWith('#')
+    const primaryHex = isCustom ? colorTheme : {
+      'violet': '#7c3aed', 'blue': '#2563eb', 'rose': '#e11d48', 'amber': '#d97706', 'emerald': '#059669'
+    }[colorTheme] || '#7c3aed'
+
     // Dynamically update the document's theme-color meta tag for PWA/Mobile top bars
     let metaTheme = document.querySelector('meta[name="theme-color"]')
     if (!metaTheme) {
@@ -38,20 +43,56 @@ export default function App() {
       metaTheme.name = 'theme-color'
       document.head.appendChild(metaTheme)
     }
-    // Update color based on dark/light mode background
-    metaTheme.content = theme === 'light' ? '#f4f4f5' : '#0a0a0c'
-  }, [theme])
+    metaTheme.content = theme === 'light' ? '#ffffff' : '#0a0a0c' // or primaryHex if preferred
+
+    // Apply exact background bounds
+    const baseClasses = `${theme === 'light' ? 'light' : ''} bg-background text-foreground`
+    
+    if (isCustom) {
+      document.body.className = baseClasses
+      let r = parseInt(colorTheme.substring(1,3), 16) / 255
+      let g = parseInt(colorTheme.substring(3,5), 16) / 255
+      let b = parseInt(colorTheme.substring(5,7), 16) / 255
+      let cmin = Math.min(r,g,b), cmax = Math.max(r,g,b), delta = cmax - cmin, h = 0, s = 0, l = 0
+      if (delta !== 0) {
+        if (cmax === r) h = ((g - b) / delta) % 6
+        else if (cmax === g) h = (b - r) / delta + 2
+        else h = (r - g) / delta + 4
+      }
+      h = Math.round(h * 60)
+      if (h < 0) h += 360
+      l = (cmax + cmin) / 2
+      s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1))
+      s = +(s * 100).toFixed(1)
+      l = +(l * 100).toFixed(1)
+      
+      document.body.style.setProperty('--primary', `${h} ${s}% ${l}%`)
+      document.body.style.setProperty('--grad-primary', `linear-gradient(135deg, ${colorTheme}, ${colorTheme}cc)`)
+      document.body.style.setProperty('--primary-foreground', l > 50 ? '240 10% 10%' : '0 0% 100%')
+    } else {
+      document.body.className = `${baseClasses} theme-${colorTheme}`
+      document.body.style.removeProperty('--primary')
+      document.body.style.removeProperty('--grad-primary')
+      document.body.style.removeProperty('--primary-foreground')
+    }
+
+    // Dynamic Manifest for PWA to adopt exact theme
+    fetch('/manifest.json').then(r => r.json()).then(manifest => {
+      manifest.theme_color = primaryHex
+      manifest.background_color = theme === 'light' ? '#ffffff' : '#0a0c10'
+      const stringManifest = JSON.stringify(manifest)
+      const blob = new Blob([stringManifest], {type: 'application/json'})
+      const manifestURL = URL.createObjectURL(blob)
+      let manifestLink = document.querySelector('link[rel="manifest"]')
+      if (manifestLink) manifestLink.href = manifestURL
+    }).catch(e => console.error(e))
+
+  }, [theme, colorTheme])
 
   const handleDataChange = () => setRefreshKey(k => k + 1)
 
-  // Apply theme classes to the root container
-  const themeClass = `${theme === 'light' ? 'light' : ''} theme-${colorTheme}`
-
   return (
-    <div className="min-h-screen w-full flex flex-col bg-background text-foreground">
-      <div className={`flex flex-col flex-1 h-[100dvh] w-full ${themeClass} relative`}>
-
-
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden relative">
         <div className="content-scroll flex-1">
           {activeTab === 'home' && <HomeTab key={refreshKey} />}
           {activeTab === 'upload' && <UploadTab onDataChange={handleDataChange} />}
@@ -86,7 +127,6 @@ export default function App() {
             ))}
           </div>
         </nav>
-      </div>
     </div>
   )
 }

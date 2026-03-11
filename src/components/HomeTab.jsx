@@ -187,16 +187,16 @@ export default function HomeTab() {
                 className="balance-card rounded-2xl p-5 mb-4 relative z-10"
             >
                 <p className="text-xs text-primary opacity-80 mb-1 font-medium">Current Balance</p>
-                <p className="text-3xl font-black text-white mb-4">{fmt(Math.abs(currentBalance))}</p>
+                <p className="text-3xl font-black text-foreground mb-4">{fmt(Math.abs(currentBalance))}</p>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <p className="text-xs text-red-300 flex items-center gap-1 mb-1">
+                        <p className="text-xs flex items-center gap-1 mb-1" style={{ color: 'hsl(var(--destructive))' }}>
                             <ArrowUpRight className="w-3 h-3" /> Total Debited
                         </p>
                         <p className="text-base font-bold debit-text">{fmt(totalDebit)}</p>
                     </div>
                     <div>
-                        <p className="text-xs text-green-300 flex items-center gap-1 mb-1">
+                        <p className="text-xs flex items-center gap-1 mb-1" style={{ color: 'hsl(var(--credit))' }}>
                             <ArrowDownLeft className="w-3 h-3" /> Total Credited
                         </p>
                         <p className="text-base font-bold credit-text">{fmt(totalCredit)}</p>

@@ -128,7 +128,7 @@ export default function ProfileTab({ theme, colorTheme, onThemeChange, onColorTh
                         <button
                             key={id}
                             onClick={() => handleThemeChange(id)}
-                            className={`flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all duration-200 ${theme === id ? 'bg-primary text-white' : 'text-muted-foreground'
+                            className={`flex-1 py-2.5 text-xs font-semibold rounded-xl transition-all duration-200 ${theme === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
                                 }`}
                         >
                             {label}
@@ -154,12 +154,33 @@ export default function ProfileTab({ theme, colorTheme, onThemeChange, onColorTh
                                 style={{ background: `linear-gradient(135deg, ${color}, ${color}88)` }}
                             >
                                 {colorTheme === id && (
-                                    <Check className="w-4 h-4 text-white absolute inset-0 m-auto" />
+                                    <Check className="w-4 h-4 text-primary-foreground absolute inset-0 m-auto" />
                                 )}
                             </div>
                             <span className="text-[10px] text-muted-foreground">{label}</span>
                         </button>
                     ))}
+                    <div className="flex flex-col items-center gap-1.5 cursor-pointer relative" title="Pick Custom Color">
+                        <div
+                            className={`w-10 h-10 rounded-xl transition-all duration-200 relative overflow-hidden ${colorTheme.startsWith('#') ? 'ring-2 ring-white ring-offset-2 ring-offset-background scale-110' : ''}`}
+                            style={{ 
+                                background: colorTheme.startsWith('#') 
+                                    ? `linear-gradient(135deg, ${colorTheme}, ${colorTheme}88)`
+                                    : 'conic-gradient(from 0deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)'
+                            }}
+                        >
+                            <input 
+                                type="color" 
+                                className="absolute inset-0 w-[200%] h-[200%] -top-1/2 -left-1/2 opacity-0 cursor-pointer" 
+                                value={colorTheme.startsWith('#') ? colorTheme : '#7c3aed'}
+                                onChange={(e) => handleColorThemeChange(e.target.value)}
+                            />
+                            {colorTheme.startsWith('#') && (
+                                <Check className="w-4 h-4 text-primary-foreground absolute inset-0 m-auto pointer-events-none" />
+                            )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">Custom</span>
+                    </div>
                 </div>
             </div>
 
