@@ -147,7 +147,7 @@ export default function UploadTab({ onDataChange }) {
                 ) : (
                     <div className="flex flex-col items-center gap-3">
                         <div className="w-14 h-14 rounded-2xl balance-card flex items-center justify-center">
-                            <Upload className="w-7 h-7 text-purple-400" />
+                            <Upload className="w-7 h-7 text-primary opacity-80" />
                         </div>
                         <div>
                             <p className="text-sm font-semibold">Tap to upload or drag & drop</p>
@@ -238,7 +238,7 @@ export default function UploadTab({ onDataChange }) {
                 disabled={!file || status === 'parsing'}
                 className="w-full py-4 rounded-2xl font-bold text-sm transition-all duration-200 relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                    background: !file ? 'hsl(var(--secondary))' : 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                    background: !file ? 'hsl(var(--secondary))' : 'var(--grad-primary)',
                     boxShadow: file ? '0 0 30px rgba(124,58,237,0.4)' : 'none',
                 }}
             >

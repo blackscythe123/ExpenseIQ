@@ -29,7 +29,7 @@
     --neutral: 220 70% 65%;
 
     /* Gradients */
-    --grad-purple: linear-gradient(135deg, #7c3aed, #a855f7);
+    --grad-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
     --grad-debit: linear-gradient(135deg, #ef4444, #f97316);
     --grad-credit: linear-gradient(135deg, #22c55e, #06b6d4);
     --grad-gold: linear-gradient(135deg, #f59e0b, #ef4444);
@@ -105,7 +105,7 @@
 
   /* Gradient text */
   .gradient-text {
-    background: var(--grad-purple);
+    background: var(--grad-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

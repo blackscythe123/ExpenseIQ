@@ -189,7 +189,7 @@ export default function ProfileTab({ theme, colorTheme, onThemeChange, onColorTh
                     onClick={handleChangePdfPassword}
                     disabled={!newPdfPwd}
                     className="w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-40 transition-all"
-                    style={{ background: newPdfPwd ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : undefined }}
+                    style={{ background: newPdfPwd ? 'var(--grad-primary)' : undefined }}
                 >
                     Update Password
                 </button>
@@ -216,7 +216,7 @@ export default function ProfileTab({ theme, colorTheme, onThemeChange, onColorTh
                     onClick={handleExport}
                     disabled={!exportPassword || exportStatus === 'loading'}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 transition-all"
-                    style={{ background: exportPassword ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : undefined }}
+                    style={{ background: exportPassword ? 'var(--grad-primary)' : undefined }}
                 >
                     {exportStatus === 'loading' ? (
                         <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Encrypting...</>

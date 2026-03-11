@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 const DEFAULT_CATEGORIES = ['Food', 'Shopping', 'Travel', 'Recharge', 'Entertainment', 'Education', 'Health', 'Utilities', 'Loan/EMI', 'Others']
 const EMOJIS = ['🛍️', '🍔', '✈️', '📱', '🎬', '📚', '🏥', '💡', '💳', '💰', '🏦', '🎮', '🚗', '☕', '💼']
-const BUBBLE_COLORS = ['#7c3aed', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777', '#0d9488', '#ea580c']
+const BUBBLE_COLORS = ['hsl(var(--primary))', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777', '#0d9488', '#ea580c']
 
 // ── UpiCard MUST be defined OUTSIDE CategorizeTab.
 // When defined inside, React sees a new component type on every render,
@@ -97,7 +97,7 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
 
                             <button onClick={() => saveEdit(upi.upiId)}
                                 className="w-full py-2 rounded-xl text-sm font-semibold text-white transition-all"
-                                style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}>
+                                style={{ background: 'var(--grad-primary)' }}>
                                 Save Label
                             </button>
                         </div>
@@ -198,7 +198,7 @@ export default function CategorizeTab({ onDataChange }) {
                 </div>
                 <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${upiList.length ? (categorized.length / upiList.length * 100) : 0}%`, background: 'linear-gradient(90deg, #7c3aed, #a855f7)' }} />
+                        style={{ width: `${upiList.length ? (categorized.length / upiList.length * 100) : 0}%`, background: 'var(--grad-primary)' }} />
                 </div>
             </div>
 

@@ -186,7 +186,7 @@ export default function HomeTab() {
                 transition={{ delay: 0.1 }}
                 className="balance-card rounded-2xl p-5 mb-4 relative z-10"
             >
-                <p className="text-xs text-purple-300 mb-1 font-medium">Current Balance</p>
+                <p className="text-xs text-primary opacity-80 mb-1 font-medium">Current Balance</p>
                 <p className="text-3xl font-black text-white mb-4">{fmt(Math.abs(currentBalance))}</p>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -273,7 +273,7 @@ export default function HomeTab() {
                         label: 'Transactions',
                         value: displayTxs.length,
                         icon: Calendar,
-                        color: '#7c3aed',
+                        color: 'hsl(var(--primary))',
                     },
                     {
                         label: view === 'compare' ? 'Total Spent' : view === 'debit' ? 'Total Spent' : 'Total Earned',
@@ -441,7 +441,7 @@ export default function HomeTab() {
                             const displayName = catInfo?.name || tx.upiId.split('@')[0].slice(0, 18)
                             const initial = displayName[0]?.toUpperCase() || '?'
                             const isDebit = tx.type === 'debit'
-                            const bgColors = ['#7c3aed', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777']
+                            const bgColors = ['hsl(var(--primary))', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777']
                             const bubbleBg = bgColors[displayName.charCodeAt(0) % bgColors.length]
 
                             return (
