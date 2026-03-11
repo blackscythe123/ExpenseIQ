@@ -30,28 +30,28 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    // Dynamically update the document's theme-color meta tag for PWA/Mobile top bars
+    let metaTheme = document.querySelector('meta[name="theme-color"]')
+    if (!metaTheme) {
+      metaTheme = document.createElement('meta')
+      metaTheme.name = 'theme-color'
+      document.head.appendChild(metaTheme)
+    }
+    // Update color based on dark/light mode background
+    metaTheme.content = theme === 'light' ? '#f4f4f5' : '#0a0a0c'
+  }, [theme])
+
   const handleDataChange = () => setRefreshKey(k => k + 1)
 
   // Apply theme classes to the root container
   const themeClass = `${theme === 'light' ? 'light' : ''} theme-${colorTheme}`
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#050508]"
-      style={{ background: 'radial-gradient(ellipse at center, #0f0520 0%, #050508 70%)' }}>
-      <div className={`mobile-frame ${themeClass} shadow-2xl relative`}
-        style={{ boxShadow: '0 0 80px rgba(124,58,237,0.15), 0 0 200px rgba(124,58,237,0.05)' }}>
+    <div className="min-h-screen w-full flex flex-col bg-background text-foreground">
+      <div className={`flex flex-col flex-1 h-[100dvh] w-full ${themeClass} relative`}>
 
-        {/* Status bar */}
-        <div className="flex justify-between items-center px-6 py-2 text-xs font-medium opacity-60 flex-shrink-0">
-          <span>9:41</span>
-          <div className="flex gap-1 items-center">
-            <div className="w-4 h-2 border border-current rounded-sm">
-              <div className="w-3 h-1.5 bg-current rounded-sm m-px" />
-            </div>
-          </div>
-        </div>
 
-        {/* Page content */}
         <div className="content-scroll flex-1">
           {activeTab === 'home' && <HomeTab key={refreshKey} />}
           {activeTab === 'upload' && <UploadTab onDataChange={handleDataChange} />}

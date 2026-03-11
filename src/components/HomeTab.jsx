@@ -320,9 +320,9 @@ export default function HomeTab() {
                                     <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)' }} />
-                            <YAxis tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)' }} tickFormatter={v => fmtShort(v)} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                            <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => fmtShort(v)} />
                             <Tooltip content={<CustomTooltip />} />
                             <Area type="monotone" dataKey="debit" name="Debit" stroke="#ef4444" fill="url(#gradDebit)" strokeWidth={2} />
                             <Area type="monotone" dataKey="credit" name="Credit" stroke="#22c55e" fill="url(#gradCredit2)" strokeWidth={2} />
@@ -335,9 +335,9 @@ export default function HomeTab() {
                                     <stop offset="100%" stopColor={view === 'credit' ? '#22c55e' : '#ef4444'} stopOpacity={0} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)' }} />
-                            <YAxis tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)' }} tickFormatter={v => fmtShort(v)} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+                            <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => fmtShort(v)} />
                             <Tooltip content={<CustomTooltip />} />
                             <Area type="monotone" dataKey="amount" name={view === 'credit' ? 'Income' : 'Spending'} stroke={view === 'credit' ? '#22c55e' : '#ef4444'} fill="url(#gradArea)" strokeWidth={2} />
                         </AreaChart>
@@ -350,9 +350,9 @@ export default function HomeTab() {
                 <p className="text-sm font-semibold mb-3">Top UPIs</p>
                 <ResponsiveContainer width="100%" height={150}>
                     <BarChart data={topUpiData} margin={{ top: 5, right: 5, bottom: 20, left: -20 }} barSize={14}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 8, fill: 'rgba(255,255,255,0.4)' }} angle={-25} textAnchor="end" />
-                        <YAxis tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)' }} tickFormatter={v => fmtShort(v)} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }} angle={-25} textAnchor="end" />
+                        <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={v => fmtShort(v)} />
                         <Tooltip content={<CustomTooltip />} />
                         <Bar dataKey="value" name="Amount" radius={[4, 4, 0, 0]}>
                             {topUpiData.map((_, index) => (
@@ -377,7 +377,7 @@ export default function HomeTab() {
                             </Pie>
                             <Tooltip
                                 formatter={(v, n) => [fmtShort(v), n]}
-                                contentStyle={{ background: 'rgba(10,10,20,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '10px' }}
+                                contentStyle={{ background: 'hsl(var(--card))', color: 'hsl(var(--card-foreground))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '10px' }}
                             />
                         </PieChart>
                     </ResponsiveContainer>
@@ -388,10 +388,10 @@ export default function HomeTab() {
                     <p className="text-xs font-semibold mb-2">Debit vs Credit</p>
                     <ResponsiveContainer width="100%" height={140}>
                         <RadialBarChart cx="50%" cy="50%" innerRadius={25} outerRadius={60} data={radialData} startAngle={90} endAngle={-270}>
-                            <RadialBar dataKey="value" label={false} background={{ fill: 'rgba(255,255,255,0.04)' }} />
+                            <RadialBar dataKey="value" label={false} background={{ fill: 'hsl(var(--secondary))' }} />
                             <Tooltip
                                 formatter={(v, n) => [fmtShort(v), n]}
-                                contentStyle={{ background: 'rgba(10,10,20,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '10px' }}
+                                contentStyle={{ background: 'hsl(var(--card))', color: 'hsl(var(--card-foreground))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '10px' }}
                             />
                         </RadialBarChart>
                     </ResponsiveContainer>
