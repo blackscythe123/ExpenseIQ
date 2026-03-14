@@ -256,19 +256,41 @@ export async function parsePdf(file, password = '') {
     return { transactions, openingBalance };
 }
 
-// ── DATE RANGE FILTER ──────────────────────────────────────────────────────────
 export function getDateRange(filter, customStart, customEnd) {
-
-    const now = new Date(), end = new Date(now);
+    const now = new Date();
+    // Midnight of current local day
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // End of current local day
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     switch (filter) {
-        case '12h': return { start: new Date(now.getTime() - 12 * 3600000), end };
-        case '24h': return { start: new Date(now.getTime() - 24 * 3600000), end };
-        case '48h': return { start: new Date(now.getTime() - 48 * 3600000), end };
-        case '7d': return { start: new Date(now.getTime() - 7 * 86400000), end };
-        case '1m': return { start: new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()), end };
-        case 'custom': return { start: new Date(customStart), end: new Date(customEnd) };
-        default: return { start: new Date(0), end };
+        case '12h': 
+            // Representing "Today" since time is not available
+            return { start: today, end };
+        case '24h': 
+            // Representing "Since Yesterday" 
+            return { start: new Date(today.getTime() - 86400000), end };
+        case '48h': 
+            return { start: new Date(today.getTime() - 2 * 86400000), end };
+        case '7d': 
+            // Last 7 days including today means Today - 6 days
+            return { start: new Date(today.getTime() - 6 * 86400000), end };
+        case '1m': 
+            return { start: new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()), end };
+        case 'custom': {
+            let sDate = new Date(0);
+            let eDate = end;
+            if (customStart) {
+                const [sY, sM, sD] = customStart.split('-');
+                if (sY && sM && sD) sDate = new Date(sY, sM - 1, sD, 0, 0, 0);
+            }
+            if (customEnd) {
+                const [eY, eM, eD] = customEnd.split('-');
+                if (eY && eM && eD) eDate = new Date(eY, eM - 1, eD, 23, 59, 59, 999);
+            }
+            return { start: sDate, end: eDate };
+        }
+        default: 
+            return { start: new Date(0), end };
     }
-
 }

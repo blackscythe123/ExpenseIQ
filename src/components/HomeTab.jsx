@@ -61,8 +61,9 @@ export default function HomeTab() {
     const filtered = useMemo(() => {
         const { start, end } = getDateRange(filter, customStart, customEnd)
         return transactions.filter(tx => {
-            const d = new Date(tx.date)
-            return d >= start && d <= end
+            const [y, m, d] = tx.date.split('-')
+            const txDate = new Date(y, m - 1, d)
+            return txDate >= start && txDate <= end
         })
     }, [transactions, filter, customStart, customEnd])
 
