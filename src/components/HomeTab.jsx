@@ -81,7 +81,14 @@ export default function HomeTab() {
         // The very last row in the PDF sometimes has balance=0 because the footer text
         // Sort by date desc, then by createdAt desc to preserve exact PDF sequence
         // This guarantees we find the true daily closing balance when multiple txs happen on the same day.
-        const sorted = [...pool].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
+        const sorted = [...pool].sort((a, b) => {
+            const [aD, aM, aY] = a.date.split('-')
+            const [bD, bM, bY] = b.date.split('-')
+            const dateA = new Date(aY, aM - 1, aD)
+            const dateB = new Date(bY, bM - 1, bD)
+            if (dateB.getTime() !== dateA.getTime()) return dateB - dateA
+            return b.createdAt.localeCompare(a.createdAt)
+        })
         const lastWithBalance = sorted.find(t => t.balance > 0)
         if (lastWithBalance) return lastWithBalance.balance
         // Fallback: arithmetic (approximate, ignores opening balance)
@@ -100,7 +107,11 @@ export default function HomeTab() {
             map[d][tx.type === 'debit' ? 'debit' : 'credit'] += Math.abs(tx.amount)
         })
         return Object.values(map)
-            .sort((a, b) => a.date.localeCompare(b.date))
+            .sort((a, b) => {
+                const [aD, aM, aY] = a.date.split('-')
+                const [bD, bM, bY] = b.date.split('-')
+                return new Date(aY, aM - 1, aD) - new Date(bY, bM - 1, bD)
+            })
             .map(d => ({
                 ...d,
                 date: d.date.slice(5), // MM-DD
@@ -437,7 +448,14 @@ export default function HomeTab() {
                 </div>
                 <div className="flex flex-col gap-2">
                     <AnimatePresence>
-                        {displayTxs.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20).map((tx, i) => {
+                        {displayTxs.slice().sort((a, b) => {
+                            const [aD, aM, aY] = a.date.split('-')
+                            const [bD, bM, bY] = b.date.split('-')
+                            const dA = new Date(aY, aM - 1, aD)
+                            const dB = new Date(bY, bM - 1, bD)
+                            if (dB.getTime() !== dA.getTime()) return dB - dA
+                            return b.createdAt.localeCompare(a.createdAt)
+                        }).slice(0, 20).map((tx, i) => {
                             const catInfo = categories[tx.upiId]
                             const displayName = catInfo?.name || tx.upiId.split('@')[0].slice(0, 18)
                             const initial = displayName[0]?.toUpperCase() || '?'
