@@ -59,7 +59,7 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                         className="overflow-hidden"
                     >
                         <div className="mt-3 pt-3 border-t border-border flex flex-col gap-3">
-                            <div>
+                            <div className="relative">
                                 <label className="text-xs text-muted-foreground mb-1 block">Display Name</label>
                                 <input
                                     type="text"
@@ -69,13 +69,33 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                                     autoFocus
                                     className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                                 />
+                                {editName.trim().length > 0 && (
+                                    <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-40 overflow-y-auto hidden-scrollbar">
+                                        {Array.from(new Map(Object.values(categories).filter(c => c.name && c.name.toLowerCase().includes(editName.toLowerCase()) && c.name.toLowerCase() !== editName.toLowerCase()).map(c => [c.name.toLowerCase(), c])).values()).slice(0, 5).map(s => (
+                                            <button
+                                                key={s.name}
+                                                onClick={() => {
+                                                    setEditName(s.name)
+                                                    setEditEmoji(s.emoji || '💰')
+                                                    setEditCategory(s.categoryTag || 'Others')
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors"
+                                                type="button"
+                                            >
+                                                <span>{s.emoji} </span>
+                                                <span className="font-medium">{s.name}</span>
+                                                <span className="ml-2 text-[10px] text-muted-foreground">{s.categoryTag}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div>
                                 <label className="text-xs text-muted-foreground mb-1 block">Icon</label>
                                 <div className="flex flex-wrap gap-1.5">
                                     {EMOJIS.map(e => (
-                                        <button key={e} onClick={() => setEditEmoji(e)}
+                                        <button key={e} onClick={() => setEditEmoji(e)} type="button"
                                             className={`w-8 h-8 rounded-lg text-sm transition-all ${editEmoji === e ? 'bg-primary' : 'bg-secondary hover:bg-secondary/80'}`}>
                                             {e}
                                         </button>
@@ -85,13 +105,20 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
 
                             <div>
                                 <label className="text-xs text-muted-foreground mb-1 block">Category</label>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {DEFAULT_CATEGORIES.map(c => (
-                                        <button key={c} onClick={() => setEditCategory(c)}
-                                            className={`px-2 py-1 rounded-full text-xs transition-all ${editCategory === c ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}>
+                                <div className="flex flex-wrap gap-1.5 items-center">
+                                    {Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).map(c => (
+                                        <button key={c} onClick={() => setEditCategory(c)} type="button"
+                                            className={`px-2 py-1 rounded-full text-xs transition-all ${editCategory === c ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
                                             {c}
                                         </button>
                                     ))}
+                                    <input 
+                                        type="text" 
+                                        placeholder="Add Custom..." 
+                                        value={!Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).includes(editCategory) ? editCategory : ''}
+                                        onChange={e => setEditCategory(e.target.value)}
+                                        className="px-2 py-1 rounded-full text-xs bg-input border border-border w-28 focus:outline-none focus:border-primary"
+                                    />
                                 </div>
                             </div>
 
