@@ -79,7 +79,7 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                                                     setEditEmoji(s.emoji || '💰')
                                                     setEditCategory(s.categoryTag || 'Others')
                                                 }}
-                                                className="w-full text-left px-3 py-2 text-sm hover:bg-secondary transition-colors"
+                                                className="w-full text-left px-3 py-2 text-sm hover:bg-primary/20 hover:text-primary transition-colors flex items-center gap-2"
                                                 type="button"
                                             >
                                                 <span>{s.emoji} </span>

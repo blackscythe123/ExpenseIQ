@@ -166,7 +166,7 @@ export default function ProfileTab({ theme, colorTheme, onThemeChange, onColorTh
                             style={{ 
                                 background: colorTheme.startsWith('#') 
                                     ? `linear-gradient(135deg, ${colorTheme}, ${colorTheme}88)`
-                                    : 'conic-gradient(from 0deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)'
+                                    : 'conic-gradient(from 90deg, red, yellow, lime, aqua, blue, magenta, red)'
                             }}
                         >
                             <input 
