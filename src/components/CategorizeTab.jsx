@@ -11,12 +11,14 @@ const BUBBLE_COLORS = ['hsl(var(--primary))', '#2563eb', '#dc2626', '#16a34a', '
 // When defined inside, React sees a new component type on every render,
 // unmounting + remounting the card — this loses input focus on every keystroke.
 function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
-    setEditName, setEditEmoji, setEditCategory, startEdit, saveEdit, setEditing }) {
+    setEditName, setEditEmoji, setEditCategory, startEdit, saveEdit, setEditing, transactions, expandedUpi, setExpandedUpi }) {
 
     const cat = categories[upi.upiId]
     const isEditing = editing === upi.upiId
     const color = BUBBLE_COLORS[upi.upiId.charCodeAt(0) % BUBBLE_COLORS.length]
     const initial = cat?.emoji || (cat?.name?.[0] || upi.upiId[0]).toUpperCase()
+
+    const isExpanded = expandedUpi === upi.upiId
 
     return (
         <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-3 mb-2">
@@ -26,7 +28,7 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                     <span>{cat?.emoji || initial[0]}</span>
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0" onClick={() => isEditing ? null : setExpandedUpi(isExpanded ? null : upi.upiId)} style={{ cursor: isEditing ? 'default' : 'pointer' }}>
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                             {cat?.name
@@ -131,6 +133,31 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <AnimatePresence>
+                {!isEditing && isExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="mt-2 pt-2 border-t border-border flex flex-col gap-2 max-h-60 overflow-y-auto hidden-scrollbar">
+                            {transactions.filter(t => t.upiId === upi.upiId).slice().sort((a,b) => b.createdAt.localeCompare(a.createdAt)).map(t => (
+                                <div key={t.id} className="flex justify-between items-center text-[10px] p-2 rounded-lg bg-secondary/50">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium truncate text-foreground">{t.description}</p>
+                                        <p className="text-muted-foreground">{t.date}</p>
+                                    </div>
+                                    <span className={`font-semibold ml-2 ${t.type === 'debit' ? 'debit-text' : 'credit-text'}`}>
+                                        {t.type === 'debit' ? '-' : '+'}₹{t.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     )
 }
@@ -144,6 +171,8 @@ export default function CategorizeTab({ onDataChange }) {
     const [editEmoji, setEditEmoji] = useState('')
     const [editCategory, setEditCategory] = useState('')
     const [loading, setLoading] = useState(true)
+    const [transactions, setTransactions] = useState([])
+    const [expandedUpi, setExpandedUpi] = useState(null)
 
     useEffect(() => { load() }, [])
 
@@ -166,6 +195,7 @@ export default function CategorizeTab({ onDataChange }) {
 
         setCategories(catMap)
         setUpiList(Object.values(upiMap).sort((a, b) => (b.totalDebit + b.totalCredit) - (a.totalDebit + a.totalCredit)))
+        setTransactions(txs)
         setLoading(false)
     }
 
@@ -193,7 +223,7 @@ export default function CategorizeTab({ onDataChange }) {
     const uncategorized = filteredList.filter(u => !categories[u.upiId])
     const categorized = filteredList.filter(u => categories[u.upiId])
 
-    const cardProps = { categories, editing, editName, editEmoji, editCategory, setEditName, setEditEmoji, setEditCategory, startEdit, saveEdit, setEditing }
+    const cardProps = { categories, editing, editName, editEmoji, editCategory, setEditName, setEditEmoji, setEditCategory, startEdit, saveEdit, setEditing, transactions, expandedUpi, setExpandedUpi }
 
     if (loading) return (
         <div className="flex items-center justify-center h-64">

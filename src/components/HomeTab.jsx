@@ -5,7 +5,7 @@ import {
     CartesianGrid, Legend
 } from 'recharts'
 import { TrendingDown, TrendingUp, Wallet, Calendar, ChevronRight, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
-import { getAllTransactions, getAllCategories } from '../lib/db'
+import { getAllTransactions, getAllCategories, upsertTransactions } from '../lib/db'
 import { getDateRange } from '../lib/parser'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -56,6 +56,12 @@ export default function HomeTab() {
             setLoading(false)
         })
     }, [])
+
+    const handleUpdateTxCategory = async (tx, newCategory) => {
+        const updated = { ...tx, overrideCategory: newCategory }
+        await upsertTransactions([updated])
+        setTransactions(prev => prev.map(t => t.id === tx.id ? updated : t))
+    }
 
     // Filter transactions by date range
     const filtered = useMemo(() => {
@@ -124,7 +130,7 @@ export default function HomeTab() {
         const source = view === 'debit' ? debits : view === 'credit' ? credits : filtered
         const map = {}
         source.forEach(tx => {
-            const catName = categories[tx.upiId]?.name || tx.category || 'Others'
+            const catName = tx.overrideCategory || categories[tx.upiId]?.categoryTag || tx.category || 'Others'
             map[catName] = (map[catName] || 0) + Math.abs(tx.amount)
         })
         return Object.entries(map)
@@ -458,8 +464,9 @@ export default function HomeTab() {
                         }).slice(0, 20).map((tx, i) => {
                             const catInfo = categories[tx.upiId]
                             const displayName = catInfo?.name || tx.upiId.split('@')[0].slice(0, 18)
-                            const initial = displayName[0]?.toUpperCase() || '?'
+                            const initial = catInfo?.emoji || displayName[0]?.toUpperCase() || '?'
                             const isDebit = tx.type === 'debit'
+                            const finalCategory = tx.overrideCategory || catInfo?.categoryTag || tx.category || 'Others'
                             const bgColors = ['hsl(var(--primary))', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777']
                             const bubbleBg = bgColors[displayName.charCodeAt(0) % bgColors.length]
 
@@ -480,20 +487,33 @@ export default function HomeTab() {
                                         <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                                             <span className="px-1.5 py-0.5 rounded-full text-[9px]"
                                                 style={{ background: `${bubbleBg}22`, color: bubbleBg }}>
-                                                {tx.category}
+                                                {finalCategory}
                                             </span>
                                             <span>{tx.date}</span>
                                         </p>
                                         <AnimatePresence>
                                             {expandedTx === tx.id && (
-                                                <motion.p
+                                                <motion.div
                                                     initial={{ height: 0, opacity: 0 }}
                                                     animate={{ height: 'auto', opacity: 1 }}
                                                     exit={{ height: 0, opacity: 0 }}
-                                                    className="text-[9px] text-muted-foreground mt-1 break-all"
+                                                    className="mt-2"
                                                 >
-                                                    {tx.description}
-                                                </motion.p>
+                                                    <p className="text-[9px] text-muted-foreground break-all mb-2">
+                                                        {tx.description}
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {['Food', 'Shopping', 'Travel', 'Recharge', 'Entertainment', 'Education', 'Health', 'Utilities', 'Loan/EMI', 'Others'].map(c => (
+                                                            <button 
+                                                                key={c}
+                                                                onClick={(e) => { e.stopPropagation(); handleUpdateTxCategory(tx, c) }}
+                                                                className={`px-2 py-0.5 rounded-full text-[9px] transition-colors ${finalCategory === c ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:bg-primary/20'}`}
+                                                            >
+                                                                {c}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </div>
