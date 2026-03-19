@@ -37,6 +37,149 @@ function CustomTooltip({ active, payload, label }) {
     return null
 }
 
+const DEFAULT_CATEGORIES = ['Food', 'Shopping', 'Travel', 'Recharge', 'Entertainment', 'Education', 'Health', 'Utilities', 'Loan/EMI', 'Others']
+
+function TxItem({ tx, i, categories, expandedTx, setExpandedTx, handleUpdateTx, fmt }) {
+    const isExpanded = expandedTx === tx.id
+    const catInfo = categories[tx.upiId]
+    const defaultDisplayName = catInfo?.name || tx.upiId?.split('@')?.[0]?.slice(0, 18) || tx.description?.slice(0, 18) || 'Unknown'
+    const displayName = tx.overrideName || defaultDisplayName
+    const initial = catInfo?.emoji || displayName[0]?.toUpperCase() || '?'
+    const isDebit = tx.type === 'debit'
+    const finalCategory = tx.overrideCategory || catInfo?.categoryTag || tx.category || 'Others'
+    const bgColors = ['hsl(var(--primary))', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777']
+    const bubbleBg = bgColors[(displayName.charCodeAt(0) || 0) % bgColors.length]
+    
+    const [editName, setEditName] = useState(displayName)
+    const [editCategory, setEditCategory] = useState(finalCategory)
+
+    useEffect(() => {
+        if (isExpanded) {
+            setEditName(displayName)
+            setEditCategory(finalCategory)
+        }
+    }, [isExpanded, displayName, finalCategory])
+
+    const saveChanges = (e) => {
+        if (e) e.stopPropagation()
+        handleUpdateTx(tx, { overrideName: editName.trim() || undefined, overrideCategory: editCategory.trim() || undefined })
+        setExpandedTx(null)
+    }
+
+    return (
+        <motion.div
+            key={tx.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.02 }}
+            className="tx-item"
+            onClick={() => setExpandedTx(isExpanded ? null : tx.id)}
+            style={{ cursor: isExpanded ? 'default' : 'pointer' }}
+        >
+            <div className="upi-bubble" style={{ background: `${bubbleBg}22`, border: `1px solid ${bubbleBg}44`, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setExpandedTx(isExpanded ? null : tx.id) }}>
+                <span style={{ color: bubbleBg }}>{initial}</span>
+            </div>
+            <div className="flex-1 min-w-0" onClick={(e) => { if (!isExpanded) { e.stopPropagation(); setExpandedTx(tx.id); } }}>
+                {!isExpanded ? (
+                    <>
+                        <p className="text-xs font-semibold truncate cursor-pointer">{displayName}</p>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 cursor-pointer">
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px]"
+                                style={{ background: `${bubbleBg}22`, color: bubbleBg }}>
+                                {finalCategory}
+                            </span>
+                            <span>{tx.date}</span>
+                        </p>
+                    </>
+                ) : (
+                    <div className="flex flex-col gap-2 relative z-10">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={editName}
+                                onChange={e => setEditName(e.target.value)}
+                                placeholder="Display Name..."
+                                className="w-full bg-input border border-border rounded-xl px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                                onClick={e => e.stopPropagation()}
+                            />
+                            {editName.trim().length > 0 && editName !== displayName && (
+                                <div className="absolute z-20 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-40 overflow-y-auto hidden-scrollbar">
+                                    {Array.from(new Map(Object.values(categories).filter(c => c.name && c.name.toLowerCase().includes(editName.toLowerCase()) && c.name.toLowerCase() !== editName.toLowerCase()).map(c => [c.name.toLowerCase(), c])).values()).slice(0, 5).map(s => (
+                                        <button
+                                            key={s.name}
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setEditName(s.name)
+                                                setEditCategory(s.categoryTag || 'Others')
+                                            }}
+                                            className="w-full text-left px-3 py-2 text-sm hover:bg-primary/20 hover:text-primary transition-colors flex items-center gap-2"
+                                            type="button"
+                                        >
+                                            <span>{s.emoji} </span>
+                                            <span className="font-medium">{s.name}</span>
+                                            <span className="ml-2 text-[10px] text-muted-foreground">{s.categoryTag}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+                
+                <AnimatePresence>
+                    {isExpanded && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="mt-2"
+                        >
+                            <p className="text-[9px] text-muted-foreground break-all mb-2 cursor-auto" onClick={e => e.stopPropagation()}>
+                                {tx.description}
+                                <span className="block mt-0.5 opacity-50">{tx.upiId}</span>
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mb-1 cursor-auto" onClick={e => e.stopPropagation()}>Select Category:</p>
+                            <div className="flex flex-wrap gap-1 items-center mb-3">
+                                {Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).map(c => (
+                                    <button 
+                                        key={c}
+                                        onClick={(e) => { e.stopPropagation(); setEditCategory(c) }}
+                                        className={`px-2 py-0.5 rounded-full text-[9px] transition-colors ${editCategory === c ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:bg-primary/20'}`}
+                                    >
+                                        {c}
+                                    </button>
+                                ))}
+                                <input 
+                                    type="text" 
+                                    placeholder="Add Custom..." 
+                                    value={!Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).includes(editCategory) ? editCategory : ''}
+                                    onChange={e => setEditCategory(e.target.value)}
+                                    onClick={e => e.stopPropagation()}
+                                    className="px-2 py-0.5 rounded-full text-[9px] bg-input border border-border w-24 focus:outline-none focus:border-primary"
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={saveChanges} className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white transition-all" style={{ background: 'var(--grad-primary)' }}>
+                                    Save Apperance
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); setExpandedTx(null); }} className="flex-1 py-1.5 rounded-lg text-xs font-medium bg-secondary text-muted-foreground hover:bg-secondary/80 transition-all">
+                                    Cancel
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+            <div className="text-right flex-shrink-0" style={{ marginTop: isExpanded ? '4px' : '0' }}>
+                <p className={`text-sm font-bold ${isDebit ? 'debit-text' : 'credit-text'}`}>
+                    {isDebit ? '-' : '+'}{fmt(tx.amount)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">{isDebit ? '↑ Debit' : '↓ Credit'}</p>
+            </div>
+        </motion.div>
+    )
+}
+
 export default function HomeTab() {
     const [transactions, setTransactions] = useState([])
     const [categories, setCategories] = useState({})
@@ -57,8 +200,8 @@ export default function HomeTab() {
         })
     }, [])
 
-    const handleUpdateTxCategory = async (tx, newCategory) => {
-        const updated = { ...tx, overrideCategory: newCategory }
+    const handleUpdateTx = async (tx, updates) => {
+        const updated = { ...tx, ...updates }
         await upsertTransactions([updated])
         setTransactions(prev => prev.map(t => t.id === tx.id ? updated : t))
     }
@@ -144,7 +287,7 @@ export default function HomeTab() {
         const source = view === 'debit' ? debits : view === 'credit' ? credits : filtered
         const map = {}
         source.forEach(tx => {
-            const label = categories[tx.upiId]?.name || tx.upiId.split('@')[0].slice(0, 12)
+            const label = tx.overrideName || categories[tx.upiId]?.name || tx.upiId?.split('@')?.[0]?.slice(0, 12) || tx.description?.slice(0, 12) || 'Unknown'
             map[label] = (map[label] || 0) + Math.abs(tx.amount)
         })
         return Object.entries(map)
@@ -462,69 +605,7 @@ export default function HomeTab() {
                             if (dB.getTime() !== dA.getTime()) return dB - dA
                             return b.createdAt.localeCompare(a.createdAt)
                         }).slice(0, 20).map((tx, i) => {
-                            const catInfo = categories[tx.upiId]
-                            const displayName = catInfo?.name || tx.upiId.split('@')[0].slice(0, 18)
-                            const initial = catInfo?.emoji || displayName[0]?.toUpperCase() || '?'
-                            const isDebit = tx.type === 'debit'
-                            const finalCategory = tx.overrideCategory || catInfo?.categoryTag || tx.category || 'Others'
-                            const bgColors = ['hsl(var(--primary))', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777']
-                            const bubbleBg = bgColors[displayName.charCodeAt(0) % bgColors.length]
-
-                            return (
-                                <motion.div
-                                    key={tx.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: i * 0.02 }}
-                                    className="tx-item"
-                                    onClick={() => setExpandedTx(expandedTx === tx.id ? null : tx.id)}
-                                >
-                                    <div className="upi-bubble" style={{ background: `${bubbleBg}22`, border: `1px solid ${bubbleBg}44` }}>
-                                        <span style={{ color: bubbleBg }}>{initial}</span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-semibold truncate">{displayName}</p>
-                                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                            <span className="px-1.5 py-0.5 rounded-full text-[9px]"
-                                                style={{ background: `${bubbleBg}22`, color: bubbleBg }}>
-                                                {finalCategory}
-                                            </span>
-                                            <span>{tx.date}</span>
-                                        </p>
-                                        <AnimatePresence>
-                                            {expandedTx === tx.id && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    className="mt-2"
-                                                >
-                                                    <p className="text-[9px] text-muted-foreground break-all mb-2">
-                                                        {tx.description}
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {['Food', 'Shopping', 'Travel', 'Recharge', 'Entertainment', 'Education', 'Health', 'Utilities', 'Loan/EMI', 'Others'].map(c => (
-                                                            <button 
-                                                                key={c}
-                                                                onClick={(e) => { e.stopPropagation(); handleUpdateTxCategory(tx, c) }}
-                                                                className={`px-2 py-0.5 rounded-full text-[9px] transition-colors ${finalCategory === c ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:bg-primary/20'}`}
-                                                            >
-                                                                {c}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                    <div className="text-right flex-shrink-0">
-                                        <p className={`text-sm font-bold ${isDebit ? 'debit-text' : 'credit-text'}`}>
-                                            {isDebit ? '-' : '+'}{fmt(tx.amount)}
-                                        </p>
-                                        <p className="text-[10px] text-muted-foreground">{isDebit ? '↑ Debit' : '↓ Credit'}</p>
-                                    </div>
-                                </motion.div>
-                            )
+                            return <TxItem key={tx.id} tx={tx} i={i} categories={categories} expandedTx={expandedTx} setExpandedTx={setExpandedTx} handleUpdateTx={handleUpdateTx} fmt={fmt} />
                         })}
                     </AnimatePresence>
                 </div>

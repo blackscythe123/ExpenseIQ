@@ -173,7 +173,7 @@ export default function UploadTab({ onDataChange }) {
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        placeholder="Enter PDF password (e.g. 8220318626)"
+                        placeholder="Enter PDF password (e.g. 9876543210)"
                         className="w-full bg-input border border-border rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all"
                     />
                     <button
