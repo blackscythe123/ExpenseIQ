@@ -4,7 +4,7 @@ import {
     RadialBarChart, RadialBar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     CartesianGrid, Legend
 } from 'recharts'
-import { TrendingDown, TrendingUp, Wallet, Calendar, ChevronRight, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, Calendar, ChevronRight, ArrowUpRight, ArrowDownLeft, ShoppingBag, Utensils, Plane, Smartphone, Film, Book, Stethoscope, Lightbulb, CreditCard, Coins, Landmark, Gamepad2, Car, Coffee, Briefcase } from 'lucide-react'
 import { getAllTransactions, getAllCategories, upsertTransactions } from '../lib/db'
 import { getDateRange } from '../lib/parser'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -39,7 +39,13 @@ function CustomTooltip({ active, payload, label }) {
 
 const DEFAULT_CATEGORIES = ['Food', 'Shopping', 'Travel', 'Recharge', 'Entertainment', 'Education', 'Health', 'Utilities', 'Loan/EMI', 'Others']
 
-function TxItem({ tx, i, categories, expandedTx, setExpandedTx, handleUpdateTx, fmt }) {
+const CATEGORY_ICONS = {
+    '🛍️': ShoppingBag, '🍔': Utensils, '✈️': Plane, '📱': Smartphone, '🎬': Film,
+    '📚': Book, '🏥': Stethoscope, '💡': Lightbulb, '💳': CreditCard, '💰': Coins,
+    '🏦': Landmark, '🎮': Gamepad2, '🚗': Car, '☕': Coffee, '💼': Briefcase
+}
+
+function TxItem({ tx, i, categories, transactions, expandedTx, setExpandedTx, handleUpdateTx, fmt }) {
     const isExpanded = expandedTx === tx.id
     const catInfo = categories[tx.upiId]
     const defaultDisplayName = catInfo?.name || tx.upiId?.split('@')?.[0]?.slice(0, 18) || tx.description?.slice(0, 18) || 'Unknown'
@@ -66,6 +72,12 @@ function TxItem({ tx, i, categories, expandedTx, setExpandedTx, handleUpdateTx, 
         setExpandedTx(null)
     }
 
+    const allAvailableCategories = Array.from(new Set([
+        ...DEFAULT_CATEGORIES, 
+        ...Object.values(categories).map(c => c.categoryTag).filter(Boolean),
+        ...(transactions || []).map(t => t.overrideCategory).filter(Boolean)
+    ]))
+
     return (
         <motion.div
             key={tx.id}
@@ -76,8 +88,11 @@ function TxItem({ tx, i, categories, expandedTx, setExpandedTx, handleUpdateTx, 
             onClick={() => setExpandedTx(isExpanded ? null : tx.id)}
             style={{ cursor: isExpanded ? 'default' : 'pointer' }}
         >
-            <div className="upi-bubble" style={{ background: `${bubbleBg}22`, border: `1px solid ${bubbleBg}44`, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setExpandedTx(isExpanded ? null : tx.id) }}>
-                <span style={{ color: bubbleBg }}>{initial}</span>
+            <div className="upi-bubble flex items-center justify-center text-lg" style={{ background: `${bubbleBg}22`, border: `1px solid ${bubbleBg}44`, color: bubbleBg, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setExpandedTx(isExpanded ? null : tx.id) }}>
+                {(() => {
+                    const IconComp = CATEGORY_ICONS[initial];
+                    return IconComp ? <IconComp className="w-5 h-5 opacity-80" /> : <span>{initial}</span>;
+                })()}
             </div>
             <div className="flex-1 min-w-0" onClick={(e) => { if (!isExpanded) { e.stopPropagation(); setExpandedTx(tx.id); } }}>
                 {!isExpanded ? (
@@ -115,8 +130,13 @@ function TxItem({ tx, i, categories, expandedTx, setExpandedTx, handleUpdateTx, 
                                             className="w-full text-left px-3 py-2 text-sm hover:bg-primary/20 hover:text-primary transition-colors flex items-center gap-2"
                                             type="button"
                                         >
-                                            <span>{s.emoji} </span>
-                                            <span className="font-medium">{s.name}</span>
+                                                <span className="font-medium flex items-center gap-2">
+                                                    {(() => {
+                                                        const DropIco = CATEGORY_ICONS[s.emoji];
+                                                        return DropIco ? <DropIco className="w-4 h-4 opacity-70" /> : <span>{s.emoji}</span>;
+                                                    })()}
+                                                    {s.name}
+                                                </span>
                                             <span className="ml-2 text-[10px] text-muted-foreground">{s.categoryTag}</span>
                                         </button>
                                     ))}
@@ -140,7 +160,7 @@ function TxItem({ tx, i, categories, expandedTx, setExpandedTx, handleUpdateTx, 
                             </p>
                             <p className="text-[10px] text-muted-foreground mb-1 cursor-auto" onClick={e => e.stopPropagation()}>Select Category:</p>
                             <div className="flex flex-wrap gap-1 items-center mb-3">
-                                {Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).map(c => (
+                                {allAvailableCategories.map(c => (
                                     <button 
                                         key={c}
                                         onClick={(e) => { e.stopPropagation(); setEditCategory(c) }}
@@ -152,7 +172,7 @@ function TxItem({ tx, i, categories, expandedTx, setExpandedTx, handleUpdateTx, 
                                 <input 
                                     type="text" 
                                     placeholder="Add Custom..." 
-                                    value={!Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).includes(editCategory) ? editCategory : ''}
+                                    value={!allAvailableCategories.includes(editCategory) ? editCategory : ''}
                                     onChange={e => setEditCategory(e.target.value)}
                                     onClick={e => e.stopPropagation()}
                                     className="px-2 py-0.5 rounded-full text-[9px] bg-input border border-border w-24 focus:outline-none focus:border-primary"
@@ -605,7 +625,7 @@ export default function HomeTab() {
                             if (dB.getTime() !== dA.getTime()) return dB - dA
                             return b.createdAt.localeCompare(a.createdAt)
                         }).slice(0, 20).map((tx, i) => {
-                            return <TxItem key={tx.id} tx={tx} i={i} categories={categories} expandedTx={expandedTx} setExpandedTx={setExpandedTx} handleUpdateTx={handleUpdateTx} fmt={fmt} />
+                            return <TxItem key={tx.id} tx={tx} i={i} categories={categories} transactions={transactions} expandedTx={expandedTx} setExpandedTx={setExpandedTx} handleUpdateTx={handleUpdateTx} fmt={fmt} />
                         })}
                     </AnimatePresence>
                 </div>

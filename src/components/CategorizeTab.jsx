@@ -1,10 +1,29 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Tag, Check, Edit2, Search } from 'lucide-react'
+import { Tag, Check, Edit2, Search, ShoppingBag, Utensils, Plane, Smartphone, Film, Book, Stethoscope, Lightbulb, CreditCard, Coins, Landmark, Gamepad2, Car, Coffee, Briefcase } from 'lucide-react'
 import { getAllTransactions, getAllCategories, upsertCategory } from '../lib/db'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const DEFAULT_CATEGORIES = ['Food', 'Shopping', 'Travel', 'Recharge', 'Entertainment', 'Education', 'Health', 'Utilities', 'Loan/EMI', 'Others']
-const EMOJIS = ['🛍️', '🍔', '✈️', '📱', '🎬', '📚', '🏥', '💡', '💳', '💰', '🏦', '🎮', '🚗', '☕', '💼']
+
+export const CATEGORY_ICONS = {
+    '🛍️': ShoppingBag,
+    '🍔': Utensils,
+    '✈️': Plane,
+    '📱': Smartphone,
+    '🎬': Film,
+    '📚': Book,
+    '🏥': Stethoscope,
+    '💡': Lightbulb,
+    '💳': CreditCard,
+    '💰': Coins,
+    '🏦': Landmark,
+    '🎮': Gamepad2,
+    '🚗': Car,
+    '☕': Coffee,
+    '💼': Briefcase
+}
+export const EMOJIS = Object.keys(CATEGORY_ICONS)
+
 const BUBBLE_COLORS = ['hsl(var(--primary))', '#2563eb', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#9333ea', '#db2777', '#0d9488', '#ea580c']
 
 // ── UpiCard MUST be defined OUTSIDE CategorizeTab.
@@ -20,12 +39,21 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
 
     const isExpanded = expandedUpi === upi.upiId
 
+    const allAvailableCategories = Array.from(new Set([
+        ...DEFAULT_CATEGORIES, 
+        ...Object.values(categories).map(c => c.categoryTag).filter(Boolean),
+        ...(transactions || []).map(t => t.overrideCategory).filter(Boolean)
+    ]))
+
     return (
         <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-3 mb-2">
             <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                    style={{ background: `${color}22`, border: `1px solid ${color}44` }}>
-                    <span>{cat?.emoji || initial[0]}</span>
+                    style={{ background: `${color}22`, border: `1px solid ${color}44`, color: color }}>
+                    {(() => {
+                        const IconComp = CATEGORY_ICONS[cat?.emoji];
+                        return IconComp ? <IconComp className="w-5 h-5 text-foreground" /> : <span>{cat?.emoji || initial[0]}</span>;
+                    })()}
                 </div>
 
                 <div className="flex-1 min-w-0" onClick={() => isEditing ? null : setExpandedUpi(isExpanded ? null : upi.upiId)} style={{ cursor: isEditing ? 'default' : 'pointer' }}>
@@ -84,7 +112,10 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                                                 className="w-full text-left px-3 py-2 text-sm hover:bg-primary/20 hover:text-primary transition-colors flex items-center gap-2"
                                                 type="button"
                                             >
-                                                <span>{s.emoji} </span>
+                                                {(() => {
+                                                    const DropIco = CATEGORY_ICONS[s.emoji];
+                                                    return DropIco ? <DropIco className="w-4 h-4 text-foreground opacity-70" /> : <span>{s.emoji} </span>
+                                                })()}
                                                 <span className="font-medium">{s.name}</span>
                                                 <span className="ml-2 text-[10px] text-muted-foreground">{s.categoryTag}</span>
                                             </button>
@@ -96,19 +127,21 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                             <div>
                                 <label className="text-xs text-muted-foreground mb-1 block">Icon</label>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {EMOJIS.map(e => (
+                                    {EMOJIS.map(e => {
+                                        const IconComp = CATEGORY_ICONS[e];
+                                        return (
                                         <button key={e} onClick={() => setEditEmoji(e)} type="button"
-                                            className={`w-8 h-8 rounded-lg text-sm transition-all ${editEmoji === e ? 'bg-primary' : 'bg-secondary hover:bg-secondary/80'}`}>
-                                            {e}
+                                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${editEmoji === e ? 'bg-primary text-primary-foreground shadow-md' : 'bg-secondary hover:bg-secondary/80 text-foreground'}`}>
+                                            <IconComp className="w-4 h-4" />
                                         </button>
-                                    ))}
+                                    )})}
                                 </div>
                             </div>
 
                             <div>
                                 <label className="text-xs text-muted-foreground mb-1 block">Category</label>
                                 <div className="flex flex-wrap gap-1.5 items-center">
-                                    {Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).map(c => (
+                                    {allAvailableCategories.map(c => (
                                         <button key={c} onClick={() => setEditCategory(c)} type="button"
                                             className={`px-2 py-1 rounded-full text-xs transition-all ${editCategory === c ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
                                             {c}
@@ -117,7 +150,7 @@ function UpiCard({ upi, categories, editing, editName, editEmoji, editCategory,
                                     <input 
                                         type="text" 
                                         placeholder="Add Custom..." 
-                                        value={!Array.from(new Set([...DEFAULT_CATEGORIES, ...Object.values(categories).map(c => c.categoryTag).filter(Boolean)])).includes(editCategory) ? editCategory : ''}
+                                        value={!allAvailableCategories.includes(editCategory) ? editCategory : ''}
                                         onChange={e => setEditCategory(e.target.value)}
                                         className="px-2 py-1 rounded-full text-xs bg-input border border-border w-28 focus:outline-none focus:border-primary"
                                     />
