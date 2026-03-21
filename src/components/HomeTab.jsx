@@ -4,7 +4,7 @@ import {
     RadialBarChart, RadialBar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     CartesianGrid, Legend
 } from 'recharts'
-import { TrendingDown, TrendingUp, Wallet, Calendar, ChevronRight, ArrowUpRight, ArrowDownLeft, ShoppingBag, Utensils, Plane, Smartphone, Film, Book, Stethoscope, Lightbulb, CreditCard, Coins, Landmark, Gamepad2, Car, Coffee, Briefcase } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, Calendar, ChevronRight, ArrowUpRight, ArrowDownLeft, ShoppingBag, Utensils, Plane, Smartphone, Film, Book, Stethoscope, Lightbulb, CreditCard, Coins, Landmark, Gamepad2, Car, Coffee, Briefcase, Eye, EyeOff } from 'lucide-react'
 import { getAllTransactions, getAllCategories, upsertTransactions } from '../lib/db'
 import { getDateRange } from '../lib/parser'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -200,6 +200,8 @@ function TxItem({ tx, i, categories, transactions, expandedTx, setExpandedTx, ha
     )
 }
 
+let gUnlocked = false;
+
 export default function HomeTab() {
     const [transactions, setTransactions] = useState([])
     const [categories, setCategories] = useState({})
@@ -210,6 +212,78 @@ export default function HomeTab() {
     const [showCustom, setShowCustom] = useState(false)
     const [loading, setLoading] = useState(true)
     const [expandedTx, setExpandedTx] = useState(null)
+    const [unlocked, setUnlocked] = useState(() => {
+        const isReloading = performance?.getEntriesByType?.('navigation')?.[0]?.type === 'reload';
+        if (isReloading) return sessionStorage.getItem('eiq_unlocked') === 'true';
+        return gUnlocked;
+    });
+
+    useEffect(() => {
+        gUnlocked = unlocked;
+        sessionStorage.setItem('eiq_unlocked', unlocked);
+    }, [unlocked]);
+
+    useEffect(() => {
+        const handler = () => {
+            if (document.visibilityState === 'hidden') setUnlocked(false);
+        };
+        document.addEventListener('visibilitychange', handler);
+        return () => document.removeEventListener('visibilitychange', handler);
+    }, []);
+
+    const togglePrivacy = async () => {
+        if (unlocked) {
+            setUnlocked(false);
+            return;
+        }
+        if (!window.PublicKeyCredential) {
+            setUnlocked(true);
+            return;
+        }
+        try {
+            const hasLock = localStorage.getItem('eiq_app_lock');
+            const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
+            if (!hasLock) {
+                try {
+                    const cred = await navigator.credentials.create({
+                        publicKey: {
+                            challenge,
+                            rp: { name: "ExpenseIQ" },
+                            user: { id: new Uint8Array(16), name: "user", displayName: "User" },
+                            pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+                            authenticatorSelection: { userVerification: "required" },
+                            timeout: 60000,
+                        }
+                    });
+                    if (cred) {
+                        let binary = '';
+                        const bytes = new Uint8Array(cred.rawId);
+                        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                        localStorage.setItem('eiq_app_lock', window.btoa(binary));
+                        setUnlocked(true);
+                    }
+                } catch (err) {
+                     setUnlocked(true); // fallback unlock if device isn't supported locally
+                }
+            } else {
+                const binary_string = window.atob(hasLock);
+                const bytes = new Uint8Array(binary_string.length);
+                for (let i = 0; i < binary_string.length; i++) bytes[i] = binary_string.charCodeAt(i);
+                
+                await navigator.credentials.get({
+                    publicKey: {
+                        challenge,
+                        allowCredentials: [{ type: "public-key", id: bytes.buffer }],
+                        userVerification: "required",
+                        timeout: 60000
+                    }
+                });
+                setUnlocked(true);
+            }
+        } catch (e) {
+            if (e.name === "NotSupportedError") setUnlocked(true);
+        }
+    }
     useEffect(() => {
         Promise.all([getAllTransactions(), getAllCategories()]).then(([txs, cats]) => {
             setTransactions(txs)
@@ -367,20 +441,27 @@ export default function HomeTab() {
                 transition={{ delay: 0.1 }}
                 className="balance-card rounded-2xl p-5 mb-4 relative z-10"
             >
-                <p className="text-xs text-primary opacity-80 mb-1 font-medium">Current Balance</p>
-                <p className="text-3xl font-black text-foreground mb-4">{fmt(Math.abs(currentBalance))}</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="flex justify-between items-center mb-1">
+                    <p className="text-xs text-primary opacity-80 font-medium">Current Balance</p>
+                    <button onClick={togglePrivacy} className="text-primary hover:text-white transition-colors">
+                        {unlocked ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                </div>
+                <p className={`text-3xl font-black text-foreground mb-4 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 select-none' : ''}`}>
+                    {!unlocked ? '₹***' : fmt(Math.abs(currentBalance))}
+                </p>
+                <div className={`grid grid-cols-2 gap-4 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 select-none' : ''}`}>
                     <div>
                         <p className="text-xs flex items-center gap-1 mb-1" style={{ color: 'hsl(var(--destructive))' }}>
                             <ArrowUpRight className="w-3 h-3" /> Total Debited
                         </p>
-                        <p className="text-base font-bold debit-text">{fmt(totalDebit)}</p>
+                        <p className="text-base font-bold debit-text">{!unlocked ? '₹***' : fmt(totalDebit)}</p>
                     </div>
                     <div>
                         <p className="text-xs flex items-center gap-1 mb-1" style={{ color: 'hsl(var(--credit))' }}>
                             <ArrowDownLeft className="w-3 h-3" /> Total Credited
                         </p>
-                        <p className="text-base font-bold credit-text">{fmt(totalCredit)}</p>
+                        <p className="text-base font-bold credit-text">{!unlocked ? '₹***' : fmt(totalCredit)}</p>
                     </div>
                 </div>
             </motion.div>
@@ -477,14 +558,16 @@ export default function HomeTab() {
                         className="glass-card p-3 text-center"
                     >
                         <Icon className="w-4 h-4 mx-auto mb-1" style={{ color }} />
-                        <p className="text-xs font-bold truncate" style={{ color }}>{value}</p>
+                        <p className={`text-xs font-bold truncate transition-all duration-300 ${!unlocked ? 'blur-[4px] opacity-30 select-none' : ''}`} style={{ color }}>
+                            {!unlocked ? '***' : value}
+                        </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
                     </motion.div>
                 ))}
             </div>
 
             {/* Area Chart */}
-            <div className="chart-container mb-4">
+            <div className={`chart-container mb-4 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 pointer-events-none' : ''}`}>
                 <p className="text-sm font-semibold mb-3">
                     {view === 'compare' ? 'Daily Flow' : `Daily ${view === 'debit' ? 'Spending' : 'Income'}`}
                 </p>
@@ -527,7 +610,7 @@ export default function HomeTab() {
             </div>
 
             {/* Bar chart: Top UPIs */}
-            <div className="chart-container mb-4">
+            <div className={`chart-container mb-4 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 pointer-events-none' : ''}`}>
                 <p className="text-sm font-semibold mb-3">Top UPIs</p>
                 <ResponsiveContainer width="100%" height={150}>
                     <BarChart data={topUpiData} margin={{ top: 5, right: 5, bottom: 20, left: -20 }} barSize={14}>
@@ -547,7 +630,7 @@ export default function HomeTab() {
             {/* Pie + Radial side by side */}
             <div className="grid grid-cols-2 gap-3 mb-4">
                 {/* Pie chart */}
-                <div className="chart-container mb-0">
+                <div className={`chart-container mb-0 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 pointer-events-none' : ''}`}>
                     <p className="text-xs font-semibold mb-2">By Category</p>
                     <ResponsiveContainer width="100%" height={140}>
                         <PieChart>
@@ -565,7 +648,7 @@ export default function HomeTab() {
                 </div>
 
                 {/* Radial bar chart */}
-                <div className="chart-container mb-0">
+                <div className={`chart-container mb-0 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 pointer-events-none' : ''}`}>
                     <p className="text-xs font-semibold mb-2">Debit vs Credit</p>
                     <ResponsiveContainer width="100%" height={140}>
                         <RadialBarChart cx="50%" cy="50%" innerRadius={25} outerRadius={60} data={radialData} startAngle={90} endAngle={-270}>
@@ -588,7 +671,7 @@ export default function HomeTab() {
             </div>
 
             {/* Category legend */}
-            <div className="glass-card p-3 mb-4">
+            <div className={`glass-card p-3 mb-4 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 pointer-events-none' : ''}`}>
                 <p className="text-xs font-semibold mb-2">Category Breakdown</p>
                 <div className="flex flex-col gap-2">
                     {categoryData.slice(0, 6).map((d, i) => {
