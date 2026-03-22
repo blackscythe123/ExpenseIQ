@@ -236,52 +236,72 @@ export default function HomeTab() {
             setUnlocked(false);
             return;
         }
-        if (!window.PublicKeyCredential) {
+
+        // Check if platform authenticator (device PIN/biometrics) is available
+        const hasPlatformAuth = window.PublicKeyCredential &&
+            await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
+
+        if (!hasPlatformAuth) {
+            // No device auth available – unlock directly (e.g. old desktop without PIN)
             setUnlocked(true);
             return;
         }
+
         try {
-            const hasLock = localStorage.getItem('eiq_app_lock');
-            const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
-            if (!hasLock) {
-                try {
-                    const cred = await navigator.credentials.create({
-                        publicKey: {
-                            challenge,
-                            rp: { name: "ExpenseIQ" },
-                            user: { id: new Uint8Array(16), name: "user", displayName: "User" },
-                            pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
-                            authenticatorSelection: { userVerification: "required" },
-                            timeout: 60000,
-                        }
-                    });
-                    if (cred) {
-                        let binary = '';
-                        const bytes = new Uint8Array(cred.rawId);
-                        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-                        localStorage.setItem('eiq_app_lock', window.btoa(binary));
-                        setUnlocked(true);
+            const storedId = localStorage.getItem('eiq_platform_cred');
+            const challenge = new Uint8Array(32);
+            window.crypto.getRandomValues(challenge);
+
+            if (!storedId) {
+                // First time: register a platform credential (uses device PIN/face/fingerprint only)
+                const cred = await navigator.credentials.create({
+                    publicKey: {
+                        challenge,
+                        rp: { name: "ExpenseIQ", id: location.hostname },
+                        user: { id: window.crypto.getRandomValues(new Uint8Array(16)), name: "expenseiq_user", displayName: "ExpenseIQ User" },
+                        pubKeyCredParams: [
+                            { type: "public-key", alg: -7 },
+                            { type: "public-key", alg: -257 }
+                        ],
+                        authenticatorSelection: {
+                            authenticatorAttachment: "platform",  // ← device only, NO QR / phone passkey
+                            userVerification: "required",
+                            residentKey: "discouraged",
+                        },
+                        timeout: 60000,
+                        excludeCredentials: [],
                     }
-                } catch (err) {
-                     setUnlocked(true); // fallback unlock if device isn't supported locally
-                }
+                });
+                // Store raw credential ID for future authentications
+                const idBytes = new Uint8Array(cred.rawId);
+                let bin = '';
+                idBytes.forEach(b => bin += String.fromCharCode(b));
+                localStorage.setItem('eiq_platform_cred', btoa(bin));
+                setUnlocked(true);
             } else {
-                const binary_string = window.atob(hasLock);
-                const bytes = new Uint8Array(binary_string.length);
-                for (let i = 0; i < binary_string.length; i++) bytes[i] = binary_string.charCodeAt(i);
-                
+                // Subsequent: verify with the stored platform credential
+                const bin = atob(storedId);
+                const idBytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) idBytes[i] = bin.charCodeAt(i);
+
                 await navigator.credentials.get({
                     publicKey: {
                         challenge,
-                        allowCredentials: [{ type: "public-key", id: bytes.buffer }],
+                        allowCredentials: [{ type: "public-key", id: idBytes.buffer }],
                         userVerification: "required",
-                        timeout: 60000
+                        timeout: 60000,
                     }
                 });
                 setUnlocked(true);
             }
         } catch (e) {
-            if (e.name === "NotSupportedError") setUnlocked(true);
+            // If credential is lost/invalid, clear and let user re-register on next tap
+            if (e.name === 'NotAllowedError') return;
+            if (e.name === 'InvalidStateError' || e.name === 'NotFoundError') {
+                localStorage.removeItem('eiq_platform_cred');
+            }
+            // Fallback: unlock directly if platform auth truly unsupported
+            if (e.name === 'NotSupportedError') setUnlocked(true);
         }
     }
     useEffect(() => {
