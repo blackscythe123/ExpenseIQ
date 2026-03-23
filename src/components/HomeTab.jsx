@@ -461,15 +461,22 @@ export default function HomeTab() {
                 transition={{ delay: 0.1 }}
                 className="balance-card rounded-2xl p-5 mb-4 relative z-10"
             >
-                <div className="flex justify-between items-center mb-1">
-                    <p className="text-xs text-primary opacity-80 font-medium">Current Balance</p>
-                    <button onClick={togglePrivacy} className="text-primary hover:text-white transition-colors">
-                        {unlocked ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                <p className="text-xs text-primary opacity-80 font-medium mb-1">Current Balance</p>
+                <div className="flex items-center gap-3 mb-4">
+                    <p className={`text-3xl font-black text-foreground transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 select-none' : ''}`}>
+                        {!unlocked ? '₹•••••' : fmt(Math.abs(currentBalance))}
+                    </p>
+                    <button
+                        onClick={togglePrivacy}
+                        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:bg-white/20 active:scale-90"
+                        title={unlocked ? 'Lock balance' : 'Unlock balance'}
+                    >
+                        {unlocked
+                            ? <Eye className="w-5 h-5 text-primary drop-shadow-sm" />
+                            : <EyeOff className="w-5 h-5 text-primary/60 drop-shadow-sm" />
+                        }
                     </button>
                 </div>
-                <p className={`text-3xl font-black text-foreground mb-4 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 select-none' : ''}`}>
-                    {!unlocked ? '₹***' : fmt(Math.abs(currentBalance))}
-                </p>
                 <div className={`grid grid-cols-2 gap-4 transition-all duration-300 ${!unlocked ? 'blur-md opacity-20 select-none' : ''}`}>
                     <div>
                         <p className="text-xs flex items-center gap-1 mb-1" style={{ color: 'hsl(var(--destructive))' }}>
