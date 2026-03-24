@@ -245,6 +245,7 @@ export default function CategorizeTab({ onDataChange }) {
         await upsertCategory(cat)
         setCategories(prev => ({ ...prev, [upiId]: cat }))
         setEditing(null)
+        window.dispatchEvent(new CustomEvent('eiq:categories-updated'))
         onDataChange()
     }, [editName, editEmoji, editCategory, onDataChange])
 

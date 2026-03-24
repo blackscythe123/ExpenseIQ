@@ -4,8 +4,8 @@ import {
     RadialBarChart, RadialBar, XAxis, YAxis, Tooltip, ResponsiveContainer,
     CartesianGrid, Legend
 } from 'recharts'
-import { TrendingDown, TrendingUp, Wallet, Calendar, ChevronRight, ArrowUpRight, ArrowDownLeft, ShoppingBag, Utensils, Plane, Smartphone, Film, Book, Stethoscope, Lightbulb, CreditCard, Coins, Landmark, Gamepad2, Car, Coffee, Briefcase, Eye, EyeOff } from 'lucide-react'
-import { getAllTransactions, getAllCategories, upsertTransactions } from '../lib/db'
+import { TrendingDown, TrendingUp, Wallet, Calendar, ArrowUpRight, ArrowDownLeft, ShoppingBag, Utensils, Plane, Smartphone, Film, Book, Stethoscope, Lightbulb, CreditCard, Coins, Landmark, Gamepad2, Car, Coffee, Briefcase } from 'lucide-react'
+import { getAllTransactions, getAllCategories, upsertTransactions, upsertCategory } from '../lib/db'
 import { getDateRange } from '../lib/parser'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -19,6 +19,36 @@ const fmt = (n) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, m
 const fmtShort = (n) => {
     if (n >= 1000) return `₹${(n / 1000).toFixed(1)}k`
     return `₹${n.toFixed(0)}`
+}
+
+// Custom eyelash icons — works perfectly with any color theme
+function EyeOpen({ className = 'w-5 h-5', style }) {
+    return (
+        <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            {/* eyelashes top */}
+            <line x1="12" y1="2" x2="12" y2="4.5" />
+            <line x1="16.5" y1="3.2" x2="15.5" y2="5.5" />
+            <line x1="7.5" y1="3.2" x2="8.5" y2="5.5" />
+            {/* eye outline */}
+            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+            {/* pupil */}
+            <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+        </svg>
+    )
+}
+
+function EyeClosed({ className = 'w-5 h-5', style }) {
+    return (
+        <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            {/* eyelashes pointing down */}
+            <line x1="12" y1="22" x2="12" y2="19.5" />
+            <line x1="16.5" y1="20.8" x2="15.5" y2="18.5" />
+            <line x1="7.5" y1="20.8" x2="8.5" y2="18.5" />
+            {/* closed lid arc */}
+            <path d="M1 12s4-5 11-5 11 5 11 5" />
+            <path d="M3.5 14.5 Q12 19 20.5 14.5" />
+        </svg>
+    )
 }
 
 function CustomTooltip({ active, payload, label }) {
@@ -318,7 +348,30 @@ export default function HomeTab() {
         const updated = { ...tx, ...updates }
         await upsertTransactions([updated])
         setTransactions(prev => prev.map(t => t.id === tx.id ? updated : t))
+
+        // --- Sync to categories store so CategorizeTab stays in sync ---
+        if (tx.upiId && (updates.overrideName !== undefined || updates.overrideCategory !== undefined)) {
+            const existingCat = categories[tx.upiId] || { upiId: tx.upiId }
+            const newName     = updates.overrideName     ?? existingCat.name
+            const newCategory = updates.overrideCategory ?? existingCat.categoryTag
+            const mergedCat   = { ...existingCat, name: newName, categoryTag: newCategory }
+            await upsertCategory(mergedCat)
+            setCategories(prev => ({ ...prev, [tx.upiId]: mergedCat }))
+            window.dispatchEvent(new CustomEvent('eiq:categories-updated'))
+        }
     }
+
+    useEffect(() => {
+        const reload = () => {
+            getAllCategories().then(cats => {
+                const catMap = {}
+                cats.forEach(c => { catMap[c.upiId] = c })
+                setCategories(catMap)
+            })
+        }
+        window.addEventListener('eiq:categories-updated', reload)
+        return () => window.removeEventListener('eiq:categories-updated', reload)
+    }, [])
 
     // Filter transactions by date range
     const filtered = useMemo(() => {
@@ -472,8 +525,8 @@ export default function HomeTab() {
                         title={unlocked ? 'Lock balance' : 'Unlock balance'}
                     >
                         {unlocked
-                            ? <Eye className="w-5 h-5 text-primary drop-shadow-sm" />
-                            : <EyeOff className="w-5 h-5 text-primary/60 drop-shadow-sm" />
+                            ? <EyeOpen className="w-5 h-5 text-primary drop-shadow-sm" />
+                            : <EyeClosed className="w-5 h-5 text-primary/50 drop-shadow-sm" />
                         }
                     </button>
                 </div>
