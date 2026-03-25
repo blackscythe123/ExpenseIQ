@@ -4,7 +4,7 @@
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0a0c10",
-  "theme_color": "#7c3aed",
+  "theme_color": "#000000",
   "description": "Smart UPI Transaction Analytics from your Bank Statement PDF.",
   "orientation": "portrait",
   "icons": [

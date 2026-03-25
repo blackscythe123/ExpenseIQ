@@ -349,12 +349,12 @@ export default function HomeTab() {
         await upsertTransactions([updated])
         setTransactions(prev => prev.map(t => t.id === tx.id ? updated : t))
 
-        // --- Sync to categories store so CategorizeTab stays in sync ---
-        if (tx.upiId && (updates.overrideName !== undefined || updates.overrideCategory !== undefined)) {
+        // --- Sync ONLY the display name to the categories store ---
+        // Do NOT sync overrideCategory here — individual transactions can each have
+        // their own category independent of the UPI-level default label.
+        if (tx.upiId && updates.overrideName !== undefined) {
             const existingCat = categories[tx.upiId] || { upiId: tx.upiId }
-            const newName     = updates.overrideName     ?? existingCat.name
-            const newCategory = updates.overrideCategory ?? existingCat.categoryTag
-            const mergedCat   = { ...existingCat, name: newName, categoryTag: newCategory }
+            const mergedCat   = { ...existingCat, name: updates.overrideName }
             await upsertCategory(mergedCat)
             setCategories(prev => ({ ...prev, [tx.upiId]: mergedCat }))
             window.dispatchEvent(new CustomEvent('eiq:categories-updated'))
@@ -390,33 +390,76 @@ export default function HomeTab() {
     const totalCredit = useMemo(() => credits.reduce((s, t) => s + Math.abs(t.amount), 0), [credits])
     const netAmount = totalCredit - totalDebit
     const currentBalance = useMemo(() => {
-        // Use the filtered set if a date filter is active; otherwise use all transactions
-        const pool = filter === 'all' ? transactions : filtered
-        if (!pool.length) return 0
-        // Sort by date desc, find the last transaction that has a valid (non-zero) balance.
-        // The very last row in the PDF sometimes has balance=0 because the footer text
-        // Sort by date desc, then by createdAt desc to preserve exact PDF sequence
-        // This guarantees we find the true daily closing balance when multiple txs happen on the same day.
-        const sorted = [...pool].sort((a, b) => {
-            const [aD, aM, aY] = a.date.split('-')
-            const [bD, bM, bY] = b.date.split('-')
-            const dateA = new Date(aY, aM - 1, aD)
-            const dateB = new Date(bY, bM - 1, bD)
-            if (dateB.getTime() !== dateA.getTime()) return dateB - dateA
-            return b.createdAt.localeCompare(a.createdAt)
-        })
-        const lastWithBalance = sorted.find(t => t.balance > 0)
-        if (lastWithBalance) return lastWithBalance.balance
-        // Fallback: arithmetic (approximate, ignores opening balance)
-        const allDebits = transactions.reduce((s, t) => t.type === 'debit' ? s + Math.abs(t.amount) : s, 0)
+        const sortDesc = (a, b) => {
+            const parse = t => { const [y,m,d] = t.date.split('-'); return new Date(y, m-1, d) }
+            const da = parse(a), db = parse(b)
+            if (db.getTime() !== da.getTime()) return db - da
+            return (b.createdAt || '').localeCompare(a.createdAt || '')
+        }
+
+        if (filter === 'custom') {
+            // Custom range: balance at the END of the selected range
+            if (!filtered.length) return 0
+            const sorted = [...filtered].sort(sortDesc)
+            const found = sorted.find(t => t.balance > 0)
+            if (found) return found.balance
+        }
+        // All other filters (12h, 24h, 7d, 1m, all):
+        // Always show the most recent balance from ALL transactions regardless of the view window
+        if (!transactions.length) return 0
+        const sorted = [...transactions].sort(sortDesc)
+        const found = sorted.find(t => t.balance > 0)
+        if (found) return found.balance
+        // Arithmetic fallback
+        const allDebits  = transactions.reduce((s, t) => t.type === 'debit'  ? s + Math.abs(t.amount) : s, 0)
         const allCredits = transactions.reduce((s, t) => t.type === 'credit' ? s + Math.abs(t.amount) : s, 0)
         return allCredits - allDebits
     }, [transactions, filtered, filter])
 
-    // Daily spending data for charts
+    // Hourly or daily data for the spending chart
+    const isHourlyFilter = ['12h', '24h', '48h'].includes(filter)
     const dailyData = useMemo(() => {
-        const map = {}
         const txs = view === 'debit' ? debits : view === 'credit' ? credits : filtered
+
+        if (isHourlyFilter) {
+            // Build per-hour buckets covering the full time window
+            const now = new Date()
+            const windowHours = filter === '12h' ? 12 : filter === '24h' ? 24 : 48
+            // Determine actual span of data
+            const times = txs.map(tx => {
+                const [y,m,d] = tx.date.split('-')
+                return new Date(y, m-1, d)
+            })
+            const minTime = times.length ? Math.min(...times.map(t => t.getTime())) : now.getTime() - windowHours*3600000
+            const maxTime = now.getTime()
+            const spanHours = Math.max(windowHours, Math.ceil((maxTime - minTime) / 3600000))
+            // Choose bucket size: 1h if span<=24h, 2h if <=48h, 4h otherwise
+            const bucketH = spanHours <= 24 ? 1 : spanHours <= 48 ? 2 : 4
+            const map = {}
+            // Initialise all buckets in the window
+            const startSlot = Math.floor(minTime / (bucketH * 3600000)) * bucketH
+            for (let h = startSlot; h * 3600000 <= maxTime; h += bucketH) {
+                const label = `${String(h % 24).padStart(2,'0')}:00`
+                map[h] = { hour: h, label, debit: 0, credit: 0 }
+            }
+            txs.forEach(tx => {
+                const [y,m,d] = tx.date.split('-')
+                const txTime = new Date(y, m-1, d)
+                const slot = Math.floor(txTime.getTime() / (bucketH * 3600000)) * bucketH
+                const key = slot
+                if (!map[key]) {
+                    const label = `${String((slot*bucketH) % 24).padStart(2,'0')}:00`
+                    map[key] = { hour: key, label, debit: 0, credit: 0 }
+                }
+                map[key][tx.type === 'debit' ? 'debit' : 'credit'] += Math.abs(tx.amount)
+            })
+            return Object.values(map)
+                .sort((a,b) => a.hour - b.hour)
+                .map(d => ({ ...d, date: d.label, amount: view === 'debit' ? d.debit : view === 'credit' ? d.credit : (d.debit + d.credit) }))
+        }
+
+        // Daily buckets for 7d / 1m / all / custom
+        const map = {}
         txs.forEach(tx => {
             const d = tx.date
             if (!map[d]) map[d] = { date: d, debit: 0, credit: 0 }
@@ -433,7 +476,7 @@ export default function HomeTab() {
                 date: d.date.slice(5), // MM-DD
                 amount: view === 'debit' ? d.debit : view === 'credit' ? d.credit : (d.debit + d.credit),
             }))
-    }, [filtered, debits, credits, view])
+    }, [filtered, debits, credits, view, filter, isHourlyFilter])
 
     // Category breakdown for pie
     const categoryData = useMemo(() => {
