@@ -237,6 +237,7 @@ export default function HomeTab() {
     const [categories, setCategories] = useState({})
     const [filter, setFilter] = useState('all')
     const [view, setView] = useState('debit') // debit | credit | compare
+    const [txSort, setTxSort] = useState('recent') // recent | oldest | highest | lowest
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
     const [showCustom, setShowCustom] = useState(false)
@@ -815,19 +816,40 @@ export default function HomeTab() {
                 </div>
             </div>
 
-            {/* Transaction list */}
             <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-semibold">Recent Transactions</p>
+                    <div className="flex items-center gap-1">
+                        <p className="text-sm font-semibold">Transactions</p>
+                        <select 
+                            value={txSort} 
+                            onChange={e => setTxSort(e.target.value)}
+                            className="bg-transparent text-xs text-muted-foreground outline-none border-b border-muted-foreground/30 focus:border-primary transition-colors cursor-pointer"
+                        >
+                            <option value="recent">Recent</option>
+                            <option value="oldest">Oldest</option>
+                            <option value="highest">Highest amount</option>
+                            <option value="lowest">Lowest amount</option>
+                        </select>
+                    </div>
                     <span className="text-xs text-muted-foreground">{displayTxs.length} total</span>
                 </div>
                 <div className="flex flex-col gap-2">
                     <AnimatePresence>
                         {displayTxs.slice().sort((a, b) => {
+                            if (txSort === 'highest') return Math.abs(b.amount) - Math.abs(a.amount)
+                            if (txSort === 'lowest') return Math.abs(a.amount) - Math.abs(b.amount)
+                            
                             const [aD, aM, aY] = a.date.split('-')
                             const [bD, bM, bY] = b.date.split('-')
                             const dA = new Date(aY, aM - 1, aD)
                             const dB = new Date(bY, bM - 1, bD)
+                            
+                            if (txSort === 'oldest') {
+                                if (dB.getTime() !== dA.getTime()) return dA - dB
+                                return a.createdAt.localeCompare(b.createdAt)
+                            }
+                            
+                            // Default: 'recent'
                             if (dB.getTime() !== dA.getTime()) return dB - dA
                             return b.createdAt.localeCompare(a.createdAt)
                         }).slice(0, 20).map((tx, i) => {
