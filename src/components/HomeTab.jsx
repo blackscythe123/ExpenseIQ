@@ -238,6 +238,7 @@ export default function HomeTab() {
     const [filter, setFilter] = useState('all')
     const [view, setView] = useState('debit') // debit | credit | compare
     const [txSort, setTxSort] = useState('recent') // recent | oldest | highest | lowest
+    const [displayLimit, setDisplayLimit] = useState(20)
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
     const [showCustom, setShowCustom] = useState(false)
@@ -852,11 +853,19 @@ export default function HomeTab() {
                             // Default: 'recent'
                             if (dB.getTime() !== dA.getTime()) return dB - dA
                             return b.createdAt.localeCompare(a.createdAt)
-                        }).slice(0, 20).map((tx, i) => {
+                        }).slice(0, displayLimit).map((tx, i) => {
                             return <TxItem key={tx.id} tx={tx} i={i} categories={categories} transactions={transactions} expandedTx={expandedTx} setExpandedTx={setExpandedTx} handleUpdateTx={handleUpdateTx} fmt={fmt} />
                         })}
                     </AnimatePresence>
                 </div>
+                {displayTxs.length > displayLimit && (
+                    <button 
+                        onClick={() => setDisplayLimit(prev => prev + 20)}
+                        className="w-full mt-3 py-2 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors rounded-xl"
+                    >
+                        Load More
+                    </button>
+                )}
             </div>
         </motion.div>
     )
