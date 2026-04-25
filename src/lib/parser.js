@@ -151,8 +151,6 @@ export async function parsePdf(file, password = '') {
 
     const rows = extractRows(textLines);
 
-    console.log("Total Raw Rows grouped by Serial:", rows.length);
-
     const transactions = [];
     const seen = new Set();
     let skippedCount = 0;
@@ -247,11 +245,6 @@ export async function parsePdf(file, password = '') {
             createdAt: new Date(Date.now() + i).toISOString()  // +i ensures strict PDF order
         });
     }
-
-    console.log("=== FINAL PARSER RESULT ===");
-    console.log(`Successfully parsed: ${transactions.length}`);
-    console.log(`Opening balance: ${openingBalance}`);
-    console.log(`Skipped rows: ${skippedCount}`);
 
     return { transactions, openingBalance };
 }
