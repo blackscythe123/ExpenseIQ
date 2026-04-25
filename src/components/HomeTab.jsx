@@ -343,7 +343,7 @@ export default function HomeTab() {
             cats.forEach(c => { catMap[c.upiId] = c })
             setCategories(catMap)
             setLoading(false)
-        })
+        }).catch(() => setLoading(false))
     }, [])
 
     const handleUpdateTx = async (tx, updates) => {
