@@ -210,7 +210,13 @@ export default function CategorizeTab({ onDataChange }) {
     useEffect(() => { load() }, [])
 
     async function load() {
-        const [txs, cats] = await Promise.all([getAllTransactions(), getAllCategories()])
+        let txs, cats
+        try {
+            ;[txs, cats] = await Promise.all([getAllTransactions(), getAllCategories()])
+        } catch {
+            setLoading(false)
+            return
+        }
         const catMap = {}
         cats.forEach(c => { catMap[c.upiId] = c })
 
