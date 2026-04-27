@@ -74,6 +74,7 @@ export default function UploadTab({ onDataChange }) {
     }
 
     const handleClear = async () => {
+        if (!window.confirm('Delete all transactions? This cannot be undone.')) return
         await clearTransactions()
         setTotalCount(0)
         setStatus('idle')
