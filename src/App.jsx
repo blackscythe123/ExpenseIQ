@@ -114,6 +114,8 @@ export default function App() {
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
+                aria-label={label}
+                aria-current={activeTab === id ? 'page' : undefined}
                 className={`nav-item ${activeTab === id ? 'active' : ''}`}
                 onClick={() => setActiveTab(id)}
               >
