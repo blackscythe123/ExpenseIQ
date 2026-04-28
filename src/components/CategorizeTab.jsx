@@ -247,7 +247,8 @@ export default function CategorizeTab({ onDataChange }) {
     }, [categories])
 
     const saveEdit = useCallback(async (upiId) => {
-        const cat = { upiId, name: editName.trim() || upiId.split('@')[0], emoji: editEmoji, categoryTag: editCategory }
+        const name = (editName.trim() || upiId.split('@')[0]).slice(0, 40)
+        const cat = { upiId, name, emoji: editEmoji, categoryTag: editCategory }
         await upsertCategory(cat)
         setCategories(prev => ({ ...prev, [upiId]: cat }))
         setEditing(null)
