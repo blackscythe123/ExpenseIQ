@@ -85,7 +85,7 @@ export default function App() {
       const manifestURL = URL.createObjectURL(blob)
       let manifestLink = document.querySelector('link[rel="manifest"]')
       if (manifestLink) manifestLink.href = manifestURL
-    }).catch(e => console.error(e))
+    }).catch(() => {})
 
   }, [theme, colorTheme])
 
