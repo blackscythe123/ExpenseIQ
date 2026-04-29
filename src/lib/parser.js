@@ -197,10 +197,7 @@ export async function parsePdf(file, password = '') {
             continue;
         }
 
-        let valDate = null;
-
         if (/^\d{2}-\d{2}-\d{4}$/.test(parts[2])) {
-            valDate = parts[2];
             parts.splice(2, 1);
         }
 
