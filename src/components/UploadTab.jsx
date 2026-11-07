@@ -174,7 +174,7 @@ export default function UploadTab({ onDataChange }) {
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        placeholder="Enter PDF password (e.g. 9876543210)"
+                        placeholder="Enter PDF password (e.g. 9876543210 or SIMI12345)"
                         className="w-full bg-input border border-border rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all"
                     />
                     <button
@@ -263,7 +263,7 @@ export default function UploadTab({ onDataChange }) {
             <div className="glass-card p-4 mt-4">
                 <p className="text-xs font-semibold mb-2 text-muted-foreground">Supported Formats</p>
                 <div className="flex flex-col gap-1.5">
-                    {['Bank of Baroda UPI Statement', 'UPI/IMPS/NEFT transactions', 'Encrypted PDFs (password required)'].map(f => (
+                    {['Bank of Baroda UPI Statement (Both Formats)', 'UPI/IMPS/NEFT transactions', 'Encrypted PDFs (Mobile or Name+Mobile)'].map(f => (
                         <div key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
                             <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                             {f}

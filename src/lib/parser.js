@@ -11,21 +11,37 @@ function parseAmount(s) {
 
 function parseDate(s) {
     if (!s) return null;
-    const [dd, mm, yyyy] = s.trim().split('-');
-    if (!yyyy || yyyy.length !== 4) return null;
-    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    const trimmed = s.trim();
+    const dmy = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (dmy) {
+        return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+    }
+    const monMap = {
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const monMatch = trimmed.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/);
+    if (monMatch) {
+        const dd = monMatch[1].padStart(2, '0');
+        const mm = monMap[monMatch[2].toLowerCase()];
+        const yyyy = monMatch[3];
+        if (mm) return `${yyyy}-${mm}-${dd}`;
+    }
+    return null;
 }
 
 function extractUpiId(desc) {
-    const m = desc.match(/UPI\/[^/]+\/[^/]+\/UPI\/([^/\s,]+)/i);
+    if (!desc) return 'other:unknown';
+    const cleanDesc = desc.replace(/\s*\/\s*/g, '/');
+    const m = cleanDesc.match(/UPI\/[^/]+\/[^/]+\/UPI\/([^/\s,]+)/i);
     if (m) return m[1].toLowerCase().replace(/\/$/, '');
-    const imps = desc.match(/IMPS\/P2A\/[^/]+\/([^/\s]+)/i);
-    if (imps) return `imps:${imps[1].trim().slice(0, 30)}`;
-    const neft = desc.match(/NEFT[-/]([A-Z0-9]+)[-/](.+)/i);
-    if (neft) return `neft:${neft[2].trim().slice(0, 30)}`;
-    if (/upilite|load\/lite/i.test(desc)) return 'upi:lite';
-    if (/int\.pd|interest/i.test(desc)) return 'bank:interest';
-    const any = desc.match(/([a-z0-9._\-]+@[a-z]+)/i);
+    const imps = cleanDesc.match(/IMPS\/(?:P\s*2\s*A|P2A)\/[^/]+\/([^/\s]+)/i);
+    if (imps) return `imps:${imps[1].trim().slice(0, 30).toLowerCase()}`;
+    const neft = cleanDesc.match(/NEFT[-/]([A-Z0-9]+)[-/](.+)/i);
+    if (neft) return `neft:${neft[2].trim().slice(0, 30).toLowerCase()}`;
+    if (/upilite|load\/lite/i.test(cleanDesc)) return 'upi:lite';
+    if (/int\.pd|interest/i.test(cleanDesc)) return 'bank:interest';
+    const any = cleanDesc.match(/([a-z0-9._-]+@[a-z]+)/i);
     if (any) return any[1].toLowerCase();
     return 'other:unknown';
 }
@@ -63,14 +79,12 @@ async function makeId(date, desc, amount, type) {
     return Math.abs(h).toString(16).padStart(8, '0');
 }
 
-// ── Row grouping logic ─────────────────────────────────────────────────────────
-function extractRows(lines) {
-
+// ── Legacy row extraction for old Bob World format ────────────────────────────
+function extractRowsOld(lines) {
     const rows = [];
     let current = "";
 
     for (let i = 0; i < lines.length; i++) {
-
         const word = lines[i];
 
         const isSerial = /^\d+$/.test(word);
@@ -79,155 +93,96 @@ function extractRows(lines) {
             /^\d{2}-\d{2}-\d{4}$/.test(lines[i + 1]);
 
         if (isSerial && nextIsDate) {
-
             if (current !== "") rows.push(current);
-
             current = word + " " + lines[i + 1];
             i++;
-
         } else {
-
             if (current !== "") {
                 current += " " + word;
             }
-
         }
     }
 
     if (current !== "") rows.push(current);
-
     return rows;
 }
 
-// ── MAIN PARSER ────────────────────────────────────────────────────────────────
-export async function parsePdf(file, password = '') {
+// ── PARSER IMPLEMENTATIONS ───────────────────────────────────────────────────
 
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, password: password || '' }).promise;
-
-    let textLines = [];
+async function parseNewFormat(pdf) {
+    let fullText = '';
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-
         const page = await pdf.getPage(pageNum);
         const content = await page.getTextContent();
-
-        // ✅ CRITICAL: Use the NATIVE document stream order — NO sorting.
-        // The user's strategy is correct: pdf.js provides items in correct
-        // reading order for this Bank of Baroda PDF natively. Any attempt to
-        // sort by Y/X coordinates breaks the order for multi-column rows.
-        content.items.forEach(item => {
-            if (item.str && item.str.trim() !== "") {
-                textLines.push(item.str.trim());
-            }
-        });
+        for (const item of content.items) {
+            fullText += item.str;
+            if (item.hasEOL) fullText += ' ';
+        }
+        fullText += ' ';
     }
 
-    // ── Filter Page noise tokens ──────────────────────────────────────────────
-    // pdf.js injects page footer/header tokens into some transactions' text stream
-    // at every page boundary. These tokens corrupt rows at the page boundary.
-    // Strategy: join all tokens with spaces into one big string, strip footer
-    // sentences, then split back into individual tokens.
-    let joinedText = textLines.join(' ');
-
-    // Strip all known footer/header blocks (global, case-insensitive)
-    joinedText = joinedText
-        // "This is a computer-generated statement hence does not require signature."
+    // Strip header and footer noise
+    let text = fullText
         .replace(/This\s+is\s+a\s+computer[- ]generated\s+statement\s+hence\s+does\s+not\s+require\s+signature\./gi, '')
-        // "Statement is generated on DD/MM/YYYY HH:MM:SS AM/PM (through bob World mobile app)"
         .replace(/Statement\s+is\s+generated\s+on\s+[\d/]+\s+[\d:]+\s+[AP]M\s+\(through\s+bob\s+World\s+mobile\s+app\)/gi, '')
-        // "from the system maintained in the bank containing transactions carried out in normal course of business."
         .replace(/from\s+the\s+system\s+maintained\s+in\s+the\s+bank\s+containing\s+transactions\s+carried\s+out\s+in\s+normal\s+course\s+of\s+business\./gi, '')
-        // "Note: In case you find any discrepancy, we advise you to take up with your base branch or raise a complaint using bob World."
         .replace(/Note:\s+In\s+case\s+you\s+find\s+any\s+discrepancy[^.]+\./gi, '')
-        // "Page N of M"
         .replace(/Page\s+\d+\s+of\s+\d+/gi, '')
-        // "Account Statement from DD-MM-YYYY to DD-MM-YYYY"
-        .replace(/Account\s+Statement\s+from\s+\d{2}-\d{2}-\d{4}\s+to\s+\d{2}-\d{2}-\d{4}/gi, '')
-        // Table column headers: "Serial No Transaction Date Value Date Description Cheque Number Debit Credit Balance"
-        .replace(/Serial\s+No\s+Transaction\s+Date\s+Value\s+Date\s+Description\s+Cheque\s+Number\s+Debit\s+Credit\s+Balance/gi, '');
+        .replace(/Account\s+statement\s+from\s+[\d\s-]+to\s+[\d\s-]+/gi, '')
+        .replace(/Sr\s+no\s+Transaction\s+date\s+Value\s+date\s+Description\s+Cheque\s+number\s+Debit\s+Credit\s+Balance/gi, '')
+        .replace(/Account Details[\s\S]*?Customer Account Details/gi, '');
 
-    textLines = joinedText.split(/\s+/).filter(s => s.length > 0);
+    // Normalize comma and dot separation in numbers (e.g. "25, 143.44" or "27. 15")
+    text = text.replace(/(\d+),\s+(\d+)/g, '$1,$2');
+    text = text.replace(/(\d+)\.\s+(\d+)/g, '$1.$2');
 
-    const rows = extractRows(textLines);
-
+    const monthRe = '(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)';
+    const rowStartRegex = new RegExp('(^|\\s)(\\d+)\\s+(\\d{2}\\s+' + monthRe + '\\s+\\d{4})\\s+(\\d{2}\\s+' + monthRe + '\\s+\\d{4})\\s+', 'g');
+    
+    const matches = [...text.matchAll(rowStartRegex)];
     const transactions = [];
+    let openingBalance = 0;
     const seen = new Set();
-    let skippedCount = 0;
-    let openingBalance = 0;  // will be set from row 1 (Opening Balance row)
 
-    for (let i = 0; i < rows.length; i++) {
+    for (let i = 0; i < matches.length; i++) {
+        const m = matches[i];
+        const nextM = matches[i + 1];
+        const startIdx = m.index + m[1].length;
+        const endIdx = nextM ? nextM.index + nextM[1].length : text.length;
+        const rowStr = text.substring(startIdx, endIdx).trim();
 
-        const rowStr = rows[i];
-        const parts = rowStr.split(/\s+/);
-
-        if (parts.length < 5) continue;
-
-        const serial = parts[0];
-        const txDateStr = parts[1];
-
-        const isAmt = (s) => s === '-' || /^[\d,]+\.\d{2}$/.test(s);
-
-        let debitStr = null, creditStr = null, balanceStr = null;
-
-        const len = parts.length;
-
-        if (len >= 6 && isAmt(parts[len - 1]) && isAmt(parts[len - 2]) && isAmt(parts[len - 3])) {
-
-            balanceStr = parts.pop();
-            creditStr = parts.pop();
-            debitStr = parts.pop();
-
-        } else if (len >= 5 && isAmt(parts[len - 1]) && isAmt(parts[len - 2])) {
-
-            creditStr = parts.pop();
-            debitStr = parts.pop();
-
-        } else {
-
-            skippedCount++;
-            continue;
-
-        }
-
+        const txDateStr = m[3];
         const txDate = parseDate(txDateStr);
+        if (!txDate) continue;
 
-        if (!txDate) {
-            skippedCount++;
-            continue;
-        }
+        const prefixLen = m[0].trim().length;
+        const remainder = rowStr.substring(prefixLen).trim();
 
-        if (/^\d{2}-\d{2}-\d{4}$/.test(parts[2])) {
-            parts.splice(2, 1);
-        }
+        const endRegex = /([0-9,]+\.\d{2}|-)\s+([0-9,]+\.\d{2}|-)\s+([0-9,]+\.\d{2})\s*(CR|DR)?$/i;
+        const endMatch = remainder.match(endRegex);
+        if (!endMatch) continue;
 
-        parts.splice(0, 2);
+        const debitStr = endMatch[1];
+        const creditStr = endMatch[2];
+        const balanceStr = endMatch[3];
 
-        const description = parts.join(' ').trim();
-
+        const description = remainder.substring(0, endMatch.index).trim();
         const debitAmt = parseAmount(debitStr);
         const creditAmt = parseAmount(creditStr);
-        const balanceAmt = parseAmount(balanceStr);  // actual running balance from PDF
+        const balanceAmt = parseAmount(balanceStr);
 
-        if (debitAmt === 0 && creditAmt === 0) {
-            // This is the Opening Balance row — capture its balance value
-            openingBalance = balanceAmt;
-            skippedCount++;
-            continue;
+        if (i === 0) {
+            // Infer opening balance from the very first transaction:
+            openingBalance = Math.round((balanceAmt + debitAmt - creditAmt) * 100) / 100;
         }
 
         const type = debitAmt > 0 ? 'debit' : 'credit';
         const amount = debitAmt > 0 ? debitAmt : creditAmt;
-
         const upiId = extractUpiId(description);
 
         const id = await makeId(txDate, description, amount, type);
-
-        if (seen.has(id)) {
-            skippedCount++;
-            continue;
-        }
-
+        if (seen.has(id)) continue;
         seen.add(id);
 
         transactions.push({
@@ -237,13 +192,124 @@ export async function parsePdf(file, password = '') {
             upiId,
             amount,
             type,
-            balance: balanceAmt,  // ← store actual PDF balance column
+            balance: balanceAmt,
             category: detectCategory(upiId, description),
-            createdAt: new Date(Date.now() + i).toISOString()  // +i ensures strict PDF order
+            createdAt: new Date(Date.now() + i).toISOString()
         });
     }
 
     return { transactions, openingBalance };
+}
+
+async function parseOldFormat(pdf) {
+    let textLines = [];
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        content.items.forEach(item => {
+            if (item.str && item.str.trim() !== "") {
+                textLines.push(item.str.trim());
+            }
+        });
+    }
+
+    let joinedText = textLines.join(' ');
+    joinedText = joinedText
+        .replace(/This\s+is\s+a\s+computer[- ]generated\s+statement\s+hence\s+does\s+not\s+require\s+signature\./gi, '')
+        .replace(/Statement\s+is\s+generated\s+on\s+[\d/]+\s+[\d:]+\s+[AP]M\s+\(through\s+bob\s+World\s+mobile\s+app\)/gi, '')
+        .replace(/from\s+the\s+system\s+maintained\s+in\s+the\s+bank\s+containing\s+transactions\s+carried\s+out\s+in\s+normal\s+course\s+of\s+business\./gi, '')
+        .replace(/Note:\s+In\s+case\s+you\s+find\s+any\s+discrepancy[^.]+\./gi, '')
+        .replace(/Page\s+\d+\s+of\s+\d+/gi, '')
+        .replace(/Account\s+Statement\s+from\s+\d{2}-\d{2}-\d{4}\s+to\s+\d{2}-\d{2}-\d{4}/gi, '')
+        .replace(/Serial\s+No\s+Transaction\s+Date\s+Value\s+Date\s+Description\s+Cheque\s+Number\s+Debit\s+Credit\s+Balance/gi, '');
+
+    textLines = joinedText.split(/\s+/).filter(s => s.length > 0);
+    const rows = extractRowsOld(textLines);
+
+    const transactions = [];
+    const seen = new Set();
+    let openingBalance = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const rowStr = rows[i];
+        const parts = rowStr.split(/\s+/);
+        if (parts.length < 5) continue;
+
+        const isAmt = (s) => s === '-' || /^[\d,]+\.\d{2}$/.test(s);
+        let debitStr = null, creditStr = null, balanceStr = null;
+        const len = parts.length;
+
+        if (len >= 6 && isAmt(parts[len - 1]) && isAmt(parts[len - 2]) && isAmt(parts[len - 3])) {
+            balanceStr = parts.pop();
+            creditStr = parts.pop();
+            debitStr = parts.pop();
+        } else if (len >= 5 && isAmt(parts[len - 1]) && isAmt(parts[len - 2])) {
+            creditStr = parts.pop();
+            debitStr = parts.pop();
+        } else {
+            continue;
+        }
+
+        const txDate = parseDate(parts[1]);
+        if (!txDate) continue;
+
+        if (/^\d{2}-\d{2}-\d{4}$/.test(parts[2])) {
+            parts.splice(2, 1);
+        }
+        parts.splice(0, 2);
+
+        const description = parts.join(' ').trim();
+        const debitAmt = parseAmount(debitStr);
+        const creditAmt = parseAmount(creditStr);
+        const balanceAmt = parseAmount(balanceStr);
+
+        if (debitAmt === 0 && creditAmt === 0) {
+            openingBalance = balanceAmt;
+            continue;
+        }
+
+        const type = debitAmt > 0 ? 'debit' : 'credit';
+        const amount = debitAmt > 0 ? debitAmt : creditAmt;
+        const upiId = extractUpiId(description);
+
+        const id = await makeId(txDate, description, amount, type);
+        if (seen.has(id)) continue;
+        seen.add(id);
+
+        transactions.push({
+            id,
+            date: txDate,
+            description: description.substring(0, 150),
+            upiId,
+            amount,
+            type,
+            balance: balanceAmt,
+            category: detectCategory(upiId, description),
+            createdAt: new Date(Date.now() + i).toISOString()
+        });
+    }
+
+    return { transactions, openingBalance };
+}
+
+// ── MAIN PARSER ────────────────────────────────────────────────────────────────
+export async function parsePdf(file, password = '') {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, password: password || '' }).promise;
+
+    // Inspect page 1 to auto-detect format
+    const page1 = await pdf.getPage(1);
+    const content1 = await page1.getTextContent();
+    const rawTokens1 = content1.items.map(it => it.str).join(' ');
+
+    const isNewFormat = /Sr\s*no/i.test(rawTokens1) || /\b\d{2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}\b/i.test(rawTokens1);
+
+    if (isNewFormat) {
+        return parseNewFormat(pdf);
+    } else {
+        return parseOldFormat(pdf);
+    }
 }
 
 export function getDateRange(filter, customStart, customEnd) {
