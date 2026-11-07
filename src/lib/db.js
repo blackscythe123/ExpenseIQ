@@ -30,6 +30,69 @@ function getDB() {
     return dbPromise;
 }
 
+// ── Smart Deduplication Helpers ────────────────────────────────────────────────
+function extractRefNumber(desc) {
+    if (!desc) return null;
+    const m = desc.match(/(?:UPI|IMPS|NEFT)[^0-9]*(\d{12})/i);
+    return m ? m[1] : null;
+}
+
+function getDedupKeys(t) {
+    const keys = [];
+    if (!t) return keys;
+    const rrn = extractRefNumber(t.description);
+    if (rrn) {
+        keys.push(`rrn:${rrn}|${Number(t.amount || 0).toFixed(2)}|${t.type}`);
+    }
+    if (t.description) {
+        const normDesc = t.description.replace(/\s+/g, '').substring(0, 100).toLowerCase();
+        keys.push(`desc:${t.date}|${normDesc}|${Number(t.amount || 0).toFixed(2)}|${t.type}`);
+    }
+    return keys;
+}
+
+async function smartUpsertTx(txStore, incomingList) {
+    const existing = await txStore.getAll();
+    const byId = new Map();
+    const byDedupKey = new Map();
+
+    for (const t of existing) {
+        byId.set(t.id, t);
+        for (const k of getDedupKeys(t)) {
+            if (!byDedupKey.has(k)) byDedupKey.set(k, t);
+        }
+    }
+
+    for (const inc of incomingList) {
+        let match = byId.get(inc.id);
+        if (!match) {
+            for (const k of getDedupKeys(inc)) {
+                if (byDedupKey.has(k)) {
+                    match = byDedupKey.get(k);
+                    break;
+                }
+            }
+        }
+
+        if (match) {
+            // Overwrite existing record with latest data, but retain existing ID, user custom category, and createdAt
+            const merged = {
+                ...inc,
+                id: match.id,
+                createdAt: match.createdAt || inc.createdAt,
+                category: match.category || inc.category
+            };
+            await txStore.put(merged);
+        } else {
+            await txStore.put(inc);
+            byId.set(inc.id, inc);
+            for (const k of getDedupKeys(inc)) {
+                if (!byDedupKey.has(k)) byDedupKey.set(k, inc);
+            }
+        }
+    }
+}
+
 // --- Transactions ---
 export async function getAllTransactions() {
     const db = await getDB();
@@ -48,7 +111,7 @@ export async function getTransactionsByDateRange(start, end) {
 export async function upsertTransactions(transactions) {
     const db = await getDB();
     const tx = db.transaction('transactions', 'readwrite');
-    await Promise.all(transactions.map(t => tx.store.put(t)));
+    await smartUpsertTx(tx.store, transactions);
     await tx.done;
 }
 
@@ -104,7 +167,7 @@ export async function importAllData(data) {
 
     if (data.transactions) {
         const tx = db.transaction('transactions', 'readwrite');
-        for (const t of data.transactions) await tx.store.put(t);
+        await smartUpsertTx(tx.store, data.transactions);
         await tx.done;
     }
     if (data.categories) {
